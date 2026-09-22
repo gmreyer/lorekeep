@@ -2,7 +2,9 @@ package index
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,7 +46,12 @@ func Build(repo, out string) (*Result, error) {
 		return nil, fmt.Errorf("schema pack: %w", err)
 	}
 
-	w, parseFindings := world.Load(filepath.Join(repo, WorldDir))
+	root := filepath.Join(repo, WorldDir)
+	if err := checkWorldRoot(root); err != nil {
+		return nil, err
+	}
+
+	w, parseFindings := world.Load(root)
 	findings := append(world.Findings(nil), parseFindings...)
 	findings = append(findings, validate.Validate(w, pack)...)
 	findings.Sort()
@@ -70,6 +77,29 @@ func Build(repo, out string) (*Result, error) {
 
 	res.Written = []string{indexPath, snapshotPath}
 	return res, nil
+}
+
+// checkWorldRoot fails when the world content directory is absent or is not a
+// directory.
+//
+// Either means the repository could not be read, like a missing schema pack,
+// rather than a world with errors in it, so it is an error and not a finding.
+// Git stores no empty directories: a world repo whose writer deleted every
+// entity has no world/ after a fresh clone, and the message says how to keep
+// one. An absent world/ is deliberately not an empty world, unlike an absent
+// pack content file.
+func checkWorldRoot(root string) error {
+	info, err := os.Stat(root)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return fmt.Errorf("no %s/ directory; git stores no empty directories, so commit %s/.gitkeep "+
+			"to keep an empty world", WorldDir, WorldDir)
+	case err != nil:
+		return fmt.Errorf("%s: %w", WorldDir, err)
+	case !info.IsDir():
+		return fmt.Errorf("%s is not a directory", WorldDir)
+	}
+	return nil
 }
 
 // WriteSnapshot writes the JSON the runtime ships.

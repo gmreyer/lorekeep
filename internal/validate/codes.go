@@ -44,6 +44,10 @@ const (
 	CodeWrongKind         world.Code = "wrong_kind"
 	CodeStatementEndpoint world.Code = "statement_endpoint"
 	CodeUnknownOutcome    world.Code = "unknown_outcome"
+
+	// One fact, authored once.
+	CodeDuplicateEdge   world.Code = "duplicate_edge"
+	CodeSymmetricMirror world.Code = "symmetric_mirror"
 )
 
 // Warnings. Reported, counted, and never fatal.

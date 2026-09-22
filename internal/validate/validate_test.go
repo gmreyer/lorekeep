@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/gmreyer/lore-core/internal/schema"
@@ -528,6 +529,264 @@ beliefs:
 			fs := check(t, tt.overlay)
 			wantWarnings(t, fs, tt.want...)
 		})
+	}
+}
+
+// TestOrphanReferences pins which edges make their author referenced.
+//
+// An edge whose relation is symmetric or has a derived inverse is inbound at
+// both ends: the inverse is an edge the graph holds even though nobody wrote
+// it. Only a one-way relation, which in the fixture pack is mentions alone,
+// leaves its author unreferenced.
+func TestOrphanReferences(t *testing.T) {
+	ilse := func(status, relations string) string {
+		return entityFile(`id: char_ilse_marrow
+type: character
+name: Ilse Marrow
+status: ` + status + `
+visibility: public
+relations:
+` + relations)
+	}
+	tomas := func(status, relations string) string {
+		fm := `id: char_tomas_marrow
+type: character
+name: Tomas Marrow
+status: ` + status + `
+visibility: public
+`
+		if relations != "" {
+			fm += "relations:\n" + relations
+		}
+		return entityFile(fm)
+	}
+
+	tests := []struct {
+		name    string
+		overlay map[string]string
+		want    []world.Code
+	}{
+		{
+			name: "a one-sided symmetric edge references both ends",
+			overlay: map[string]string{
+				"world/characters/ilse-marrow.md":  ilse("canon", "  - { type: sibling_of, target: char_tomas_marrow }"),
+				"world/characters/tomas-marrow.md": tomas("canon", ""),
+			},
+		},
+		{
+			name: "a project symmetric relation references both ends",
+			overlay: map[string]string{
+				"world/factions/grey-hand.md": entityFile(`id: fac_grey_hand
+type: faction
+name: The Grey Hand
+status: canon
+visibility: public
+relations:
+  - { type: allied_with, target: fac_ashen_court }`),
+			},
+		},
+		{
+			name: "an edge with a derived inverse references its author",
+			overlay: map[string]string{
+				"world/characters/ilse-marrow.md": ilse("canon", "  - { type: member_of, target: fac_ashen_court }"),
+			},
+		},
+		{
+			name: "an author of one-way edges only is still an orphan",
+			overlay: map[string]string{
+				"world/concepts/oathbinding.md": entityFile(`id: con_oathbinding
+type: concept
+name: Oathbinding
+status: canon
+visibility: public
+relations:
+  - { type: mentions, target: fac_ashen_court }`),
+			},
+			want: []world.Code{CodeOrphan},
+		},
+		{
+			// Only canon contributes references, in either direction: a draft
+			// sibling cannot keep a canon entity looking connected.
+			name: "a symmetric edge from a draft references neither end",
+			overlay: map[string]string{
+				"world/characters/ilse-marrow.md":  ilse("draft", "  - { type: sibling_of, target: char_tomas_marrow }"),
+				"world/characters/tomas-marrow.md": tomas("canon", ""),
+			},
+			want: []world.Code{CodeOrphan},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := check(t, tt.overlay)
+			wantWarnings(t, fs, tt.want...)
+		})
+	}
+}
+
+// siblings renders a pair of characters, each with its own relations block, so
+// the duplicate-edge cases show only the edges they are about.
+func siblings(ilseRelations, tomasRelations string) map[string]string {
+	render := func(id, name, relations string) string {
+		fm := "id: " + id + "\ntype: character\nname: " + name + "\nstatus: canon\nvisibility: public\n"
+		if relations != "" {
+			fm += "relations:\n" + relations
+		}
+		return entityFile(fm)
+	}
+	return map[string]string{
+		"world/characters/ilse-marrow.md":  render("char_ilse_marrow", "Ilse Marrow", ilseRelations),
+		"world/characters/tomas-marrow.md": render("char_tomas_marrow", "Tomas Marrow", tomasRelations),
+	}
+}
+
+// TestDuplicateEdges: one fact is authored once. A symmetric edge written on
+// both endpoints is the symmetric form of authoring an inverse, and the same
+// edge written twice on one entity would be stored, counted, and traversed
+// twice.
+func TestDuplicateEdges(t *testing.T) {
+	tests := []struct {
+		name    string
+		overlay map[string]string
+		want    []world.Code
+	}{
+		{
+			name: "a symmetric edge authored on both endpoints",
+			overlay: siblings(
+				"  - { type: sibling_of, target: char_tomas_marrow }",
+				"  - { type: sibling_of, target: char_ilse_marrow }"),
+			want: []world.Code{CodeSymmetricMirror},
+		},
+		{
+			// The branches of one symmetric fact live in one file, so a reader
+			// finds every worldline of the relationship in one place.
+			name: "a mirrored symmetric edge with different conditions",
+			overlay: siblings(
+				"  - { type: sibling_of, target: char_tomas_marrow,\n      valid_in: [{ decision: dec_siege_outcome, outcome: held }] }",
+				"  - { type: sibling_of, target: char_ilse_marrow,\n      valid_in: [{ decision: dec_siege_outcome, outcome: fell }] }"),
+			want: []world.Code{CodeSymmetricMirror},
+		},
+		{
+			// Symmetry comes from the pack: a project relation gets the rule
+			// without the validator knowing its name.
+			name: "a project symmetric relation authored on both endpoints",
+			overlay: map[string]string{
+				"world/factions/grey-hand.md": entityFile(`id: fac_grey_hand
+type: faction
+name: The Grey Hand
+status: canon
+visibility: public
+relations:
+  - { type: allied_with, target: fac_ashen_court }`),
+				"world/factions/ashen-court.md": entityFile(`id: fac_ashen_court
+type: faction
+name: The Ashen Court
+aliases: ["The Court"]
+status: canon
+visibility: public
+relations:
+  - { type: participated_in, target: evt_siege_of_vale }
+  - { type: allied_with, target: fac_grey_hand }
+beliefs:
+  - { statement: stmt_orrin_oath, value: true, confidence: medium }`),
+			},
+			want: []world.Code{CodeSymmetricMirror},
+		},
+		{
+			name: "the same edge twice on one entity",
+			overlay: siblings(
+				"  - { type: member_of, target: fac_ashen_court }\n  - { type: member_of, target: fac_ashen_court }",
+				""),
+			want: []world.Code{CodeDuplicateEdge},
+		},
+		{
+			name: "the same conditioned edge twice on one entity",
+			overlay: siblings(
+				"  - { type: member_of, target: fac_ashen_court,\n      valid_in: [{ decision: dec_siege_outcome, outcome: held }] }\n"+
+					"  - { type: member_of, target: fac_ashen_court,\n      valid_in: [{ decision: dec_siege_outcome, outcome: held }] }",
+				""),
+			want: []world.Code{CodeDuplicateEdge},
+		},
+		{
+			name: "the same symmetric edge twice on one endpoint",
+			overlay: siblings(
+				"  - { type: sibling_of, target: char_tomas_marrow }\n  - { type: sibling_of, target: char_tomas_marrow }",
+				""),
+			want: []world.Code{CodeDuplicateEdge},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := check(t, tt.overlay)
+			wantErrors(t, fs, tt.want...)
+			if n := len(fs.Filter(world.SeverityError)); n != 1 {
+				t.Errorf("one duplicated fact should be one finding, got %d:\n%v", n, fs)
+			}
+		})
+	}
+}
+
+// TestEdgesThatAreNotDuplicates: the same edge under different conditions is
+// how one side says "in this worldline or that one", and a symmetric edge on
+// one endpoint is the whole fact.
+func TestEdgesThatAreNotDuplicates(t *testing.T) {
+	tests := []struct {
+		name    string
+		overlay map[string]string
+	}{
+		{
+			name: "the same edge under different conditions",
+			overlay: siblings(
+				"  - { type: member_of, target: fac_ashen_court,\n      valid_in: [{ decision: dec_siege_outcome, outcome: held }] }\n"+
+					"  - { type: member_of, target: fac_ashen_court,\n      valid_in: [{ decision: dec_siege_outcome, outcome: fell }] }",
+				""),
+		},
+		{
+			name: "a symmetric edge under different conditions on one endpoint",
+			overlay: siblings(
+				"  - { type: sibling_of, target: char_tomas_marrow,\n      valid_in: [{ decision: dec_siege_outcome, outcome: held }] }\n"+
+					"  - { type: sibling_of, target: char_tomas_marrow,\n      valid_in: [{ decision: dec_siege_outcome, outcome: fell }] }",
+				""),
+		},
+		{
+			name: "a symmetric edge on one endpoint",
+			overlay: siblings(
+				"  - { type: sibling_of, target: char_tomas_marrow }",
+				""),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if errs := check(t, tt.overlay).Filter(world.SeverityError); len(errs) != 0 {
+				t.Errorf("unexpected errors:\n%v", errs)
+			}
+		})
+	}
+}
+
+// TestSymmetricMirrorIsReportedOnTheLaterFile: the finding lands on the second
+// copy in walk order and names the file holding the first, so the writer
+// knows which line to delete and where the fact already lives.
+func TestSymmetricMirrorIsReportedOnTheLaterFile(t *testing.T) {
+	fs := check(t, siblings(
+		"  - { type: sibling_of, target: char_tomas_marrow }",
+		"  - { type: member_of, target: fac_ashen_court }\n  - { type: sibling_of, target: char_ilse_marrow }"))
+
+	errs := fs.Filter(world.SeverityError)
+	if len(errs) != 1 {
+		t.Fatalf("want exactly one error, got:\n%v", errs)
+	}
+	f := errs[0]
+	if f.Code != CodeSymmetricMirror {
+		t.Fatalf("code = %s, want %s", f.Code, CodeSymmetricMirror)
+	}
+	if f.File != "characters/tomas-marrow.md" || f.Path != "relations[1]" {
+		t.Errorf("reported at %s %s, want characters/tomas-marrow.md relations[1]", f.File, f.Path)
+	}
+	if !strings.Contains(f.Msg, "characters/ilse-marrow.md") {
+		t.Errorf("message should name the file holding the first copy: %s", f.Msg)
 	}
 }
 

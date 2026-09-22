@@ -136,6 +136,30 @@ constrains the pipeline more than it constrains the code.
 - No Make and no shell scripts in the build path. Anything a writer runs must work
   from a single `.exe` with nothing else installed.
 
+## Getting lore.exe without Go
+
+Writers who do not have Go installed run a prebuilt `lore.exe` instead of
+`go tool lore`. Each version tag, from v0.2.0 on, has a release on this repo's
+[Releases page](https://github.com/gmreyer/lore-core/releases) with `lore.exe`
+(windows/amd64, no cgo) and `SHA256SUMS` attached. This repo is private, so
+downloading needs a GitHub account with read access to it.
+
+Download the release matching the version in your world repo's `go.mod`, check it,
+and confirm the version:
+
+```powershell
+(Get-FileHash lore.exe -Algorithm SHA256).Hash.ToLower()   # compare with SHA256SUMS
+.\lore.exe version
+```
+
+The binary is not code-signed, so on first run Windows SmartScreen may say it
+"protected your PC". Choose **More info → Run anyway**, having checked the hash
+first.
+
+Releases are cut by pushing a `vX.Y.Z` tag. `.github/workflows/release.yml` tests,
+builds, checks that the binary reports the tag, and creates a **draft** release.
+A person writes what the release breaks into its notes and publishes it.
+
 ## Layout
 
 ```
@@ -169,7 +193,8 @@ Blocking errors are referential integrity only: dangling ids, unknown relation
 or entity types or eras, domain and range violations, an authored inverse name,
 a condition naming an outcome that does not exist, a belief pointing at a
 non-statement, duplicate ids, case-insensitive collisions, ids outside the
-permitted charset, and unknown spoiler acts.
+permitted charset, unknown spoiler acts, the same edge authored twice under the
+same conditions, and a symmetric edge authored on both of its endpoints.
 
 Everything judgemental is a warning and never blocks: a character at an event
 outside their lifespan, an orphan entity, canon depending on a draft, a statement

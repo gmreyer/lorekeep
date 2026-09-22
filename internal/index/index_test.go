@@ -128,6 +128,65 @@ func TestBuildWritesNothingWhenValidationFails(t *testing.T) {
 	}
 }
 
+// siblingPair writes two characters to a copy of the fixture, with the given
+// relations blocks, and builds it.
+func siblingPair(t *testing.T, ilseRelations, tomasRelations string) (*Result, string) {
+	t.Helper()
+	repo := copyTree(t, fixtureRepo)
+	for _, c := range []struct{ file, id, relations string }{
+		{"world/characters/ilse-marrow.md", "char_ilse_marrow", ilseRelations},
+		{"world/characters/tomas-marrow.md", "char_tomas_marrow", tomasRelations},
+	} {
+		body := "---\nid: " + c.id + "\ntype: character\nname: " + c.id + "\nstatus: canon\nvisibility: public\n"
+		if c.relations != "" {
+			body += "relations:\n" + c.relations + "\n"
+		}
+		writeFile(t, repo, c.file, body+"---\n")
+	}
+	out := t.TempDir()
+	res, err := Build(repo, out)
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	return res, out
+}
+
+// TestSymmetricEdgeIsStoredOnce: a symmetric fact is one edge, as authored.
+// Reading it from the other end is the resolver's job, not a second row.
+func TestSymmetricEdgeIsStoredOnce(t *testing.T) {
+	res, _ := siblingPair(t, "  - { type: sibling_of, target: char_tomas_marrow }", "")
+	if res.Findings.HasErrors() {
+		t.Fatalf("unexpected errors:\n%v", res.Findings)
+	}
+	var n int
+	for _, e := range res.Index.Entities {
+		for _, edge := range e.Edges {
+			if edge.Relation == "sibling_of" {
+				n++
+			}
+		}
+	}
+	if n != 1 {
+		t.Errorf("sibling_of stored %d times, want once", n)
+	}
+}
+
+// TestMirroredSymmetricEdgeWritesNothing: the mirror is a blocking error, so
+// the fact can never reach the index twice.
+func TestMirroredSymmetricEdgeWritesNothing(t *testing.T) {
+	res, out := siblingPair(t,
+		"  - { type: sibling_of, target: char_tomas_marrow }",
+		"  - { type: sibling_of, target: char_ilse_marrow }")
+	if !res.Findings.HasErrors() {
+		t.Fatal("expected a blocking error")
+	}
+	for _, name := range []string{IndexFile, SnapshotFile} {
+		if _, err := os.Stat(filepath.Join(out, name)); !os.IsNotExist(err) {
+			t.Errorf("%s exists after a failed build", name)
+		}
+	}
+}
+
 // TestRebuildReplacesTheIndex: the index is derived and disposable, so a
 // second build must not append to the first.
 func TestRebuildReplacesTheIndex(t *testing.T) {

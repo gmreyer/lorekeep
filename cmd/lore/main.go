@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 
 	"github.com/gmreyer/lore-core/internal/index"
 	"github.com/gmreyer/lore-core/internal/world"
@@ -25,7 +26,7 @@ func main() {
 const (
 	exitOK      = 0
 	exitInvalid = 1 // the world has blocking errors
-	exitUsage   = 2 // bad invocation, or the repository could not be read
+	exitUsage   = 2 // bad invocation, or the repository could not be read: no schema/ or world/
 )
 
 func run(args []string, stdout, stderr io.Writer) int {
@@ -36,6 +37,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "build":
 		return build(args[1:], stdout, stderr)
+	case "version", "--version", "-version":
+		fmt.Fprintf(stdout, "lore %s\n", version())
+		return exitOK
 	case "-h", "--help", "help":
 		usage(stdout)
 		return exitOK
@@ -51,6 +55,7 @@ func usage(w io.Writer) {
 
 usage:
   lore build <world-dir> [-out <dir>]
+  lore version
 
 A world directory holds a schema pack in schema/ and authored lore in world/.
 build validates the whole repository and, if it is sound, writes the SQLite
@@ -59,6 +64,21 @@ index and the JSON game snapshot. Nothing is written when validation fails.
 flags:
   -out <dir>   where to write the artefacts (default: <world-dir>/build)
 `)
+}
+
+// version is the module version the binary was built from.
+//
+// It comes from the build info rather than from a linker flag, so no build
+// needs special flags: a release build from a tagged checkout reports the tag,
+// "go tool lore" in a world repo reports the version go.mod pins, a local go
+// build reports a pseudo-version, marked +dirty when the tree was, and go run
+// reports "(devel)".
+func version() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok || info.Main.Version == "" {
+		return "(unknown)"
+	}
+	return info.Main.Version
 }
 
 func build(args []string, stdout, stderr io.Writer) int {
