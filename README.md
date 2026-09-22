@@ -29,7 +29,8 @@ inheritance, worldline resolution, health metrics, and the advisory AI lane are
 deferred to later steps; beliefs, statements and `valid_in` are parsed, carried,
 and checked for referential integrity now, so the file format is final.
 
-No release tags have been cut, so there is no version for a world repo to pin.
+Released: `v0.1.0`. Step 2, the world-repo template, is
+[lore-project-template](https://github.com/gmreyer/lore-project-template).
 
 ## Working on lore-core
 
@@ -57,22 +58,55 @@ not to make.
 
 ## Using it from a world repo
 
-A world repo requires this module in its `go.mod` and pins a version by git tag:
+Start a new world from
+[lore-project-template](https://github.com/gmreyer/lore-project-template) rather than
+by hand: it carries the directory skeleton, an empty project pack, a fixture world,
+and a CI workflow that builds the world on every push.
+
+A world repo requires this module in its `go.mod`, pins a version by git tag, and
+declares the CLI as a tool (Go 1.24 or newer):
 
 ```
+go 1.25.0
+
 require github.com/gmreyer/lore-core v0.1.0
+
+tool github.com/gmreyer/lore-core/cmd/lore
 ```
+
+The `tool` directive means nobody installs `lore` separately. From the world repo's
+root, the pinned version builds and runs on demand:
+
+```
+go tool lore build .
+```
+
+Upgrading lore-core is `go get github.com/gmreyer/lore-core@v0.X.Y` in the world repo,
+then a commit of the changed `go.mod` and `go.sum`.
 
 **This repo is private, so set `GOPRIVATE` once, on every machine, before your first
 `go get`:**
 
 ```bash
-go env -w GOPRIVATE=github.com/gmreyer/*
+go env -w "GOPRIVATE=github.com/gmreyer/*"
 ```
 
 Without it the Go toolchain tries the public module proxy, gets a 404, and reports
 something that looks nothing like a permissions problem. This is the single thing
 most likely to cost someone an afternoon on day one.
+
+Go fetches the module over HTTPS with git's password prompts switched off, so an SSH
+key does not help. What works on Windows is the GitHub CLI signed in over HTTPS,
+answering yes to "authenticate Git with your GitHub credentials":
+
+```bash
+gh auth login
+```
+
+In CI there is no signed-in user, so the template's workflow rewrites
+`https://github.com/gmreyer/` to carry a fine-grained token with read access to this
+repo. When that token expires the build fails as a module download error, not as an
+authentication error — check the token first.
 
 A world repo also carries a `core_version` pin in its schema pack, recording which
 core vocabulary the prose was authored against. That is not the same fact as the
@@ -122,6 +156,8 @@ docs/spec.md       the design spec
 ```
 lore build <world-dir> [-out <dir>]
 ```
+
+Inside a world repo that is `go tool lore build .`.
 
 A world directory holds a schema pack in `schema/` and authored lore in `world/`.
 `build` validates the whole repository and, if it is sound, writes `index.db` and
