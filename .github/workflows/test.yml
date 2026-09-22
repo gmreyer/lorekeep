@@ -1,0 +1,29 @@
+# Runs the test suite and go vet on every push to main and every pull request.
+#
+# Windows is the primary platform for every developer and writer, so it is the
+# runner that matters; Linux rides along to catch the opposite mistake, a path
+# or line-ending assumption that only holds on Windows.
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test ./...
