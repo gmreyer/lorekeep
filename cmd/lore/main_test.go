@@ -265,6 +265,20 @@ func TestUsageErrors(t *testing.T) {
 	}
 }
 
+// TestVersion: a writer holding a lore.exe has no other way to tell which
+// release it is.
+func TestVersion(t *testing.T) {
+	for _, arg := range []string{"version", "--version", "-version"} {
+		code, stdout, stderr := exec(t, arg)
+		if code != exitOK {
+			t.Errorf("%s: exit %d, want 0\nstderr:\n%s", arg, code, stderr)
+		}
+		if v, ok := strings.CutPrefix(strings.TrimSpace(stdout), "lore "); !ok || v == "" {
+			t.Errorf("%s: stdout = %q, want \"lore <version>\"", arg, stdout)
+		}
+	}
+}
+
 func TestMissingRepo(t *testing.T) {
 	code, _, stderr := exec(t, "build", filepath.Join(t.TempDir(), "nowhere"))
 	if code != exitUsage {
