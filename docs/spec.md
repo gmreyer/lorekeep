@@ -304,6 +304,8 @@ At this scale the build is a few seconds. Run it on every commit and on every sa
 - `valid_in` naming a decision outcome that does not exist
 - Belief pointing at a non-existent Statement
 - Duplicate ID
+- The same edge authored twice on one entity under the same `valid_in`. The same edge under different conditions is legal: that is how one entity says "in this worldline or that one"
+- A symmetric edge authored on both endpoints, whatever its `valid_in`. Either endpoint may hold it, and there is no canonical side, but every branch of one symmetric fact lives in one file
 - Two IDs or filenames colliding case-insensitively (see the Windows notes)
 
 ### Warnings
@@ -346,6 +348,8 @@ Every read — wiki, editor, MCP tool, in-game narration — goes through one re
 2. **Belief resolution**, if a `knower` is set. Walk the chain: explicit belief → faction inheritance by priority → canon truth if common knowledge → ignorance. Return what the knower believes, not what is true.
 3. **Visibility filter.** Drop anything above the requested spoiler tier.
 4. **Status filter.** Exclude `draft`, `deprecated`, and `non_canon` unless explicitly requested.
+
+A symmetric edge is stored once, on whichever endpoint authored it, so traversal reads it from both ends. A relation with an inverse is likewise stored forward only, and its inverse is derived at query time.
 
 ### The safety default that matters most
 

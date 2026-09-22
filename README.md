@@ -133,7 +133,8 @@ Blocking errors are referential integrity only: dangling ids, unknown relation
 or entity types or eras, domain and range violations, an authored inverse name,
 a condition naming an outcome that does not exist, a belief pointing at a
 non-statement, duplicate ids, case-insensitive collisions, ids outside the
-permitted charset, and unknown spoiler acts.
+permitted charset, unknown spoiler acts, the same edge authored twice under the
+same conditions, and a symmetric edge authored on both of its endpoints.
 
 Everything judgemental is a warning and never blocks: a character at an event
 outside their lifespan, an orphan entity, canon depending on a draft, a statement

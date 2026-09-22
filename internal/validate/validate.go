@@ -20,6 +20,7 @@ func Validate(w *world.World, pack *schema.Pack) world.Findings {
 
 	v.checkIdentity()
 	v.checkEntities()
+	v.checkDuplicateEdges()
 	v.checkStatements()
 	v.checkWarnings()
 
