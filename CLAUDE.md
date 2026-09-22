@@ -70,6 +70,42 @@ internal/mcp/      MCP server
 internal/editor/   web editor (templ + htmx)
 ```
 
+## The template repo
+
+`lore-project-template` (github.com/gmreyer/lore-project-template, cloned beside this
+repo as `..\lore-project-template`) is the git template every world repo is created
+from. Work on it from a session started here: `claude --add-dir ..\lore-project-template`,
+or `/add-dir` inside a session. It has no CLAUDE.md on purpose — whatever it holds is
+copied into every new world and never updated — so this section governs it, and the
+Commits and Workflow rules apply there too.
+
+- **Scope.** The template holds what a new world starts with: the directory skeleton,
+  `go.mod` with the lore-core pin and the `tool` directive, the project pack, the CI
+  workflow, a small fixture world, `world/.gitkeep`, and a README for writers. Nothing
+  else: no CLAUDE.md, no tooling, no scripts, no code copied from lore-core. A fix
+  that must reach existing worlds belongs here in lore-core; changing the template
+  only changes worlds created afterwards.
+- **Order.** A cross-repo change lands in lore-core first, the user merges and tags
+  it, and only then does a separate template PR bump the pin. The template is never
+  pinned to an untagged commit, a pseudo-version, or a `replace` directive. One PR
+  never spans both repos.
+- **Bumping the pin.** `go get github.com/gmreyer/lore-core@vX.Y.Z`, `go mod tidy`,
+  then `go tool lore build .` and `go tool lore version`, both from the template
+  root. Every finding gets read: a minor bump can add blocking errors, and the fixture
+  must build with exit 0.
+- **Fixture world.** It shows a writer the file format and proves a fresh clone
+  builds; it does not test the validator — that is `testdata/world-ok/` here. Keep it
+  small and clean. `world/.gitkeep` stays even when `world/` has content.
+- **CI.** `.github/workflows/build.yml` runs `go tool lore build .` on windows-latest.
+  lore-core is private, so CI reads it with the `LORE_CORE_TOKEN` secret, a
+  fine-grained PAT with read-only Contents on lore-core; an expired token fails as a
+  module download error, not an auth error. Step 2's acceptance still holds: CI green
+  on main, and a deliberately broken reference turns it red.
+- **README.** The template's README is for writers. When lore-core changes what a
+  writer sees — exit codes, `lore.exe`, day-one setup — update it in the pin-bump PR.
+- **Git.** Run git there as `git -C ..\lore-project-template …`; its branches, PRs and
+  CI are its own.
+
 ## Workflow
 
 For changes to `internal/schema`, `internal/resolve`, or validation rules: write a plan
