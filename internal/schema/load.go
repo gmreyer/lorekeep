@@ -19,6 +19,7 @@ const (
 	typesFile     = "entity-types.yaml"
 	relationsFile = "relations.yaml"
 	erasFile      = "eras.yaml"
+	actsFile      = "acts.yaml"
 )
 
 // packMeta is pack.yaml: the pack's own identity and, for a project pack, the
@@ -47,6 +48,10 @@ type relationsFileBody struct {
 
 type erasFileBody struct {
 	Eras []Era `yaml:"eras"`
+}
+
+type actsFileBody struct {
+	Acts []Act `yaml:"acts"`
 }
 
 // LoadDir reads a project schema pack from a directory.
@@ -101,11 +106,16 @@ func loadFS(fsys fs.FS, source Source) (*Pack, error) {
 	if readOptional(fsys, l, erasFile, &eras) {
 		p.Eras = eras.Eras
 	}
+	var acts actsFileBody
+	if readOptional(fsys, l, actsFile, &acts) {
+		p.Acts = acts.Acts
+	}
 
 	checkTypes(l, p)
 	checkRelations(l, p)
 	checkRoles(l, p)
 	checkEras(l, p)
+	checkActs(l, p)
 
 	if err := l.err(); err != nil {
 		return nil, err
@@ -202,6 +212,31 @@ func yamlMessage(err error) string {
 	return err.Error()
 }
 
+// reservedTypeNames are names no pack may declare as an entity type or a
+// group.
+//
+// "statement" is reserved because a world file routes to the statement loader
+// on `type: statement`, and because a Statement may never be a relation
+// endpoint. Domain and range admit only declared entity types, so keeping the
+// name out of Pack.Types makes that structural rather than a rule enforced
+// somewhere else. The authoring side of this pairing is world.StatementType.
+var reservedTypeNames = map[string]string{
+	"statement": "the kind a world file declares with `type: statement`; a statement is not an entity type and may never be a relation endpoint",
+}
+
+// checkReserved reports a name that a pack may not claim. Folding the case
+// matters for the same reason it does everywhere else here: Windows would
+// treat Statement and statement as one name.
+func checkReserved(l *errList, file, path, name, kind string) bool {
+	why, ok := reservedTypeNames[strings.ToLower(name)]
+	if !ok {
+		return false
+	}
+	l.add(CodeReservedName, file, path,
+		"%s %q uses a reserved name: %s", kind, name, why)
+	return true
+}
+
 func checkTypes(l *errList, p *Pack) {
 	// Entity types and groups share one namespace: both are usable wherever a
 	// type name is, so a group named after a type would be ambiguous.
@@ -212,12 +247,18 @@ func checkTypes(l *errList, p *Pack) {
 			l.add(CodeMissingField, typesFile, path, "an entity type must have a name")
 			continue
 		}
+		if checkReserved(l, typesFile, path, t.Name, "entity type") {
+			continue
+		}
 		ns.claim(l, typesFile, path, t.Name, "entity type")
 	}
 	for i, g := range p.Groups {
 		path := fmt.Sprintf("groups[%d].name", i)
 		if g.Name == "" {
 			l.add(CodeMissingField, typesFile, path, "a group must have a name")
+			continue
+		}
+		if checkReserved(l, typesFile, path, g.Name, "group") {
 			continue
 		}
 		if len(g.Includes) == 0 {
@@ -296,6 +337,18 @@ func checkEras(l *errList, p *Pack) {
 			continue
 		}
 		ns.claim(l, erasFile, path, e.Key, "era")
+	}
+}
+
+func checkActs(l *errList, p *Pack) {
+	ns := newNamespace()
+	for i, a := range p.Acts {
+		path := fmt.Sprintf("acts[%d].key", i)
+		if a.Key == "" {
+			l.add(CodeMissingField, actsFile, path, "an act must have a key")
+			continue
+		}
+		ns.claim(l, actsFile, path, a.Key, "act")
 	}
 }
 

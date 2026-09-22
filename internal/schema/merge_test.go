@@ -301,3 +301,40 @@ func TestMergeDoesNotMutateCore(t *testing.T) {
 		t.Error("a project relation leaked into the core pack")
 	}
 }
+
+// Acts are world content, exactly as eras are: the core pack cannot know how
+// many acts a story has.
+func TestMergeRejectsActsInCore(t *testing.T) {
+	core := corePackFS(t, minimalCorePack, map[string]string{
+		"acts.yaml": "acts:\n  - {key: act1}\n",
+	})
+	proj, err := LoadFS(fsWith(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Merge(core, proj); err == nil {
+		t.Fatal("expected an error, got none")
+	} else {
+		wantCodes(t, err, CodeActInCore)
+	}
+}
+
+func TestMergeCarriesActs(t *testing.T) {
+	core, err := Core()
+	if err != nil {
+		t.Fatal(err)
+	}
+	proj, err := LoadFS(fsWith(map[string]string{
+		"acts.yaml": "acts:\n  - {key: act1}\n  - {key: act2}\n",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	merged, err := Merge(core, proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ord, ok := merged.ActOrdinal("act2"); !ok || ord != 1 {
+		t.Errorf("ActOrdinal(act2) = %d %v, want 1 true", ord, ok)
+	}
+}

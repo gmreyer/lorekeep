@@ -21,6 +21,7 @@ const (
 
 	// Names, within a pack and across the merge.
 	CodeDuplicateName Code = "duplicate_name"
+	CodeReservedName  Code = "reserved_name"
 	CodeCaseCollision Code = "case_collision"
 	CodeCollision     Code = "collision"
 
@@ -37,6 +38,7 @@ const (
 	// Tier rules: what belongs in which pack.
 	CodeRoleInProject Code = "role_in_project"
 	CodeEraInCore     Code = "era_in_core"
+	CodeActInCore     Code = "act_in_core"
 
 	// The core version pin.
 	CodeCoreTooOld Code = "core_too_old"

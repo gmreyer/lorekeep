@@ -39,6 +39,7 @@ func Merge(core, project *Pack) (*Pack, error) {
 		Roles:     concat(core.Roles, project.Roles),
 		Relations: concatRelations(core.Relations, project.Relations),
 		Eras:      concat(core.Eras, project.Eras),
+		Acts:      concat(core.Acts, project.Acts),
 	}
 
 	checkCollisions(l, core, project)
@@ -54,13 +55,18 @@ func Merge(core, project *Pack) (*Pack, error) {
 	return merged, nil
 }
 
-// checkTierRules enforces what belongs in which pack: eras are world content
-// and roles are core-owned.
+// checkTierRules enforces what belongs in which pack: eras and acts are world
+// content, and roles are core-owned.
 func checkTierRules(l *errList, core, project *Pack) {
 	for i, e := range core.Eras {
 		l.addFrom(SourceCore, CodeEraInCore, erasFile, fmt.Sprintf("eras[%d]", i),
 			"the core pack declares era %q; eras are world content and belong to a project pack",
 			e.Key)
+	}
+	for i, a := range core.Acts {
+		l.addFrom(SourceCore, CodeActInCore, actsFile, fmt.Sprintf("acts[%d]", i),
+			"the core pack declares act %q; acts are world content and belong to a project pack",
+			a.Key)
 	}
 	for i, r := range project.Roles {
 		l.add(CodeRoleInProject, relationsFile, fmt.Sprintf("roles[%d]", i),

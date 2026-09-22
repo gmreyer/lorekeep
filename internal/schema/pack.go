@@ -77,6 +77,21 @@ type Era struct {
 	Description string   `yaml:"description,omitempty"`
 }
 
+// Act is one step of the reader's progress through the story, and the unit a
+// `spoiler:<act>` visibility names. Order is list order, as it is for eras:
+// spoiler:act2 must imply that an act-1 reader is excluded, which is an
+// ordinal comparison, so a sequence field could only ever disagree with the
+// order already written down.
+//
+// Acts are editorial rather than in-world — they gate what a reader may see,
+// not what happened — so unlike an Era they carry no aliases. They are still
+// world content and appear only in a project pack.
+type Act struct {
+	Key         string `yaml:"key"`
+	Name        string `yaml:"name,omitempty"`
+	Description string `yaml:"description,omitempty"`
+}
+
 // Pack is a loaded schema pack: core, project, or the two merged.
 type Pack struct {
 	Name        string
@@ -90,6 +105,7 @@ type Pack struct {
 	Roles     []RoleDef
 	Relations []Relation
 	Eras      []Era
+	Acts      []Act
 
 	// Notices are non-blocking observations from the merge.
 	Notices []Notice
@@ -105,6 +121,7 @@ type resolved struct {
 	types   map[string]struct{} // entity type names, groups excluded
 	roles   map[Role]struct{}
 	eraOrd  map[string]int
+	actOrd  map[string]int
 	domain  map[string]map[string]struct{} // relation -> permitted domain types
 	rng     map[string]map[string]struct{} // relation -> permitted range types
 }
@@ -139,6 +156,18 @@ func (p *Pack) RelationsWithRole(role Role) []Relation {
 func (p *Pack) HasType(name string) bool {
 	_, ok := p.res.types[name]
 	return ok
+}
+
+// ExpandGroup returns the concrete entity types a group covers, sorted. It is
+// how a consumer asks "which types are agents" without knowing what a project
+// put in its own groups.
+func (p *Pack) ExpandGroup(name string) ([]string, bool) {
+	for _, g := range p.Groups {
+		if g.Name == name {
+			return p.groupExpansion()[name], true
+		}
+	}
+	return nil, false
 }
 
 // HasRole reports whether role is declared.
@@ -186,6 +215,14 @@ func (p *Pack) EraOrdinal(key string) (int, bool) {
 	return i, ok
 }
 
+// ActOrdinal returns an act's position in the story, counting from zero in
+// file order. A reader at act N may see anything gated at an act whose ordinal
+// is no greater than N.
+func (p *Pack) ActOrdinal(key string) (int, bool) {
+	i, ok := p.res.actOrd[key]
+	return i, ok
+}
+
 // index builds the lookup tables from whatever the pack currently holds.
 // Called at the end of a load and again at the end of a merge.
 func (p *Pack) index() {
@@ -195,6 +232,7 @@ func (p *Pack) index() {
 		types:   make(map[string]struct{}, len(p.Types)),
 		roles:   make(map[Role]struct{}, len(p.Roles)),
 		eraOrd:  make(map[string]int, len(p.Eras)),
+		actOrd:  make(map[string]int, len(p.Acts)),
 		domain:  make(map[string]map[string]struct{}, len(p.Relations)),
 		rng:     make(map[string]map[string]struct{}, len(p.Relations)),
 	}
@@ -217,6 +255,11 @@ func (p *Pack) index() {
 	for i, e := range p.Eras {
 		if _, seen := p.res.eraOrd[e.Key]; !seen {
 			p.res.eraOrd[e.Key] = i
+		}
+	}
+	for i, a := range p.Acts {
+		if _, seen := p.res.actOrd[a.Key]; !seen {
+			p.res.actOrd[a.Key] = i
 		}
 	}
 

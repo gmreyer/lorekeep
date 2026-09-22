@@ -131,3 +131,26 @@ func TestOccurredAtIsPlacementNotContainment(t *testing.T) {
 		}
 	}
 }
+
+// Anything named in Go must still be declared by the pack. If core ever drops
+// one of these, the rules that bind to it would quietly stop firing rather
+// than fail, which is the worst way for a validator to break.
+func TestCoreDeclaresNamedVocabulary(t *testing.T) {
+	c, err := Core()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{TypeCharacter, TypeEvent, TypeDecision} {
+		if !c.HasType(name) {
+			t.Errorf("core does not declare entity type %q, which lore-core names in code", name)
+		}
+	}
+	for _, role := range []Role{RoleParticipation, RoleContainment, RoleMembership, RoleOrdering} {
+		if !c.HasRole(role) {
+			t.Errorf("core does not declare role %q, which lore-core names in code", role)
+		}
+		if len(c.RelationsWithRole(role)) == 0 {
+			t.Errorf("no core relation carries role %q", role)
+		}
+	}
+}

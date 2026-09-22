@@ -298,3 +298,110 @@ relations:
 		t.Errorf("got %d errors, want 3: %v", len(errs), errs)
 	}
 }
+
+// TestReservedTypeName guards the discriminator that routes a world file to
+// the statement loader.
+//
+// A Statement is not an eighth entity type: it may never stand at either end
+// of a relation. Because domain and range admit only declared entity types,
+// keeping "statement" out of Pack.Types is what makes that structural rather
+// than a rule someone has to remember — so a pack claiming the name has to
+// fail here, in the pack, rather than later and more confusingly in a world.
+func TestReservedTypeName(t *testing.T) {
+	_, err := LoadFS(fsWith(map[string]string{"entity-types.yaml": `
+types:
+  - name: statement
+`}))
+	wantCodes(t, err, CodeReservedName)
+
+	_, err = LoadFS(fsWith(map[string]string{"entity-types.yaml": `
+types:
+  - name: language
+groups:
+  - name: statement
+    includes: [language]
+`}))
+	wantCodes(t, err, CodeReservedName)
+
+	// Case folding too: Windows would treat Statement and statement as one
+	// name, and so does the rest of this loader.
+	_, err = LoadFS(fsWith(map[string]string{"entity-types.yaml": `
+types:
+  - name: Statement
+`}))
+	wantCodes(t, err, CodeReservedName)
+
+	// Nothing else is reserved. A world that wants a "claim" or a "rumour"
+	// entity type gets one.
+	_, err = LoadFS(fsWith(map[string]string{"entity-types.yaml": `
+types:
+  - name: rumour
+  - name: claim
+`}))
+	if err != nil {
+		t.Errorf("unreserved names should load: %v", err)
+	}
+}
+
+// TestLoadActs covers the spoiler-act list: the ordered spine of what a reader
+// has been allowed to see.
+//
+// Order is list order, as it is for eras, because spoiler:act2 must imply that
+// an act-1 reader is excluded. That is an ordinal comparison, so the list has
+// to be ordered and there is no sequence field to disagree with it.
+func TestLoadActs(t *testing.T) {
+	p, err := LoadFS(fsWith(map[string]string{"acts.yaml": `
+acts:
+  - key: act1
+    name: The Vale
+  - key: act2
+    name: The Long Road
+  - key: act3
+`}))
+	if err != nil {
+		t.Fatalf("loading acts: %v", err)
+	}
+	if len(p.Acts) != 3 {
+		t.Fatalf("acts = %d, want 3", len(p.Acts))
+	}
+	for i, key := range []string{"act1", "act2", "act3"} {
+		ord, ok := p.ActOrdinal(key)
+		if !ok {
+			t.Errorf("ActOrdinal(%q) missing", key)
+			continue
+		}
+		if ord != i {
+			t.Errorf("ActOrdinal(%q) = %d, want %d", key, ord, i)
+		}
+	}
+	if _, ok := p.ActOrdinal("act4"); ok {
+		t.Error("ActOrdinal resolved an act that is not declared")
+	}
+}
+
+func TestLoadActErrors(t *testing.T) {
+	_, err := LoadFS(fsWith(map[string]string{"acts.yaml": "acts:\n  - name: nameless\n"}))
+	wantCodes(t, err, CodeMissingField)
+
+	_, err = LoadFS(fsWith(map[string]string{"acts.yaml": "acts:\n  - {key: act1}\n  - {key: act1}\n"}))
+	wantCodes(t, err, CodeDuplicateName)
+
+	// Case folding, for the same reason it applies everywhere else here.
+	_, err = LoadFS(fsWith(map[string]string{"acts.yaml": "acts:\n  - {key: act1}\n  - {key: Act1}\n"}))
+	wantCodes(t, err, CodeCaseCollision)
+
+	_, err = LoadFS(fsWith(map[string]string{"acts.yaml": "acts:\n  - {key: act1, sequence: 1}\n"}))
+	wantCodes(t, err, CodeUnknownField)
+}
+
+// A missing acts.yaml is an empty section, like every other content file: a
+// world with no spoiler gating is a legitimate world.
+func TestLoadWithoutActs(t *testing.T) {
+	p, err := LoadFS(fsWith(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(p.Acts) != 0 {
+		t.Errorf("acts = %v, want none", p.Acts)
+	}
+}
