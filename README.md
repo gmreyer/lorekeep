@@ -9,7 +9,11 @@ is deliberate: schema packs promote upstream, so a relation that proves general 
 world moves into the core pack in a later release and every world picks it up by
 bumping a version. A copied template could never receive those updates.
 
-The full design is in [docs/spec.md](docs/spec.md).
+The full design is in
+[Lore Graph — System Design Spec](https://claude.ai/artifact/Rbpb6TD77aZXTVK9YKUnPi), and
+what of it is built is in
+[Lore Graph — Implementation Status](https://claude.ai/artifact/6f7YChDHeKa8LNuaMUwyCY).
+Both are Claude Docs, private until shared.
 
 ## Status
 
@@ -172,7 +176,6 @@ internal/resolve/  query resolver (not built yet)
 internal/mcp/      MCP server (not built yet)
 internal/editor/   web editor, templ + htmx (not built yet)
 testdata/world-ok/ the fixture world, shared by every consumer
-docs/spec.md       the design spec
 ```
 
 ## Building a world
