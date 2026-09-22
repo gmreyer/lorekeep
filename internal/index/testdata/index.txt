@@ -1,0 +1,259 @@
+## meta (key, value)
+core_version	0.1.0
+format	1
+pack_name	nightfall
+pack_version	0.2.0
+
+## entity_types (name, description)
+character	An individual, living or dead.
+concept	A magic system, religion, law, technology, or custom.
+decision	A branch point in the story, with a declared set of outcomes.
+event	Something that happened at a point or interval in time.
+faction	An organised group that can hold a position.
+language	A tongue or a script.
+location	A place, at whatever granularity.
+object	An artefact, item, or otherwise significant thing.
+
+## groups (name, type)
+agent	character
+agent	faction
+any	character
+any	concept
+any	decision
+any	event
+any	faction
+any	language
+any	location
+any	object
+cultural	concept
+cultural	language
+
+## roles (name, description)
+causation	One thing bringing another about.
+containment	Physically or structurally inside. Transitive, and forms a hierarchy that terminates at a root — traversal walks the closure.
+identity	Who or what something inherently is. Kinship and personal ties.
+membership	Belonging to an organised group. Drawn by the faction tree.
+ordering	Position on the timeline. Authoritative where it disagrees with a date.
+ownership	Holding, or having made, something.
+participation	An agent taking part in an event.
+placement	A non-spatial entity anchored to a location. Not transitive: it composes with containment rather than extending it.
+
+## relations (name, inverse, symmetric, role, description)
+allied_with	""	1	""	Holds a standing alliance with.
+before	after	0	ordering	Happened before.
+caused	caused_by	0	causation	Brought about.
+concurrent_with	""	1	ordering	Happened at the same time as.
+created	created_by	0	ownership	Made or founded.
+during	spans	0	ordering	Happened within the interval of.
+hostile_to	""	1	""	Is in open enmity with.
+located_in	contains	0	containment	Sits inside, spatially. Transitive.
+married_to	""	1	identity	Is married to.
+member_of	has_member	0	membership	Belongs to an organised group.
+mentions	""	0	""	Untyped soft link: these are related and the author cannot yet say how. Watch its share of total edges — a rising share means the vocabulary is missing a type.
+occurred_at	was_site_of	0	placement	Happened at this place. Anchors an event to the map without claiming anything is inside the event.
+originates_from	origin_of	0	placement	Hails from.
+owns	owned_by	0	ownership	Holds or possesses.
+parent_of	child_of	0	identity	Is a parent of.
+part_of	has_part	0	containment	Is a component of.
+participated_in	had_participant	0	participation	Took part in.
+practises	practised_by	0	""	Observes or adheres to.
+sibling_of	""	1	identity	Shares a parent with.
+speaks	spoken_by	0	""	Is fluent in.
+sworn_to	has_sworn	0	membership	Bound by oath of service to.
+witnessed	witnessed_by	0	participation	Was present at, without taking part.
+
+## relation_domain (relation, type)
+allied_with	faction
+before	event
+caused	event
+concurrent_with	event
+created	agent
+during	event
+hostile_to	faction
+located_in	location
+located_in	object
+married_to	character
+member_of	character
+member_of	faction
+mentions	any
+occurred_at	event
+originates_from	character
+owns	agent
+parent_of	character
+part_of	object
+participated_in	agent
+practises	agent
+sibling_of	character
+speaks	agent
+sworn_to	character
+witnessed	character
+
+## relation_range (relation, type)
+allied_with	faction
+before	event
+caused	event
+concurrent_with	event
+created	any
+during	event
+hostile_to	faction
+located_in	location
+married_to	character
+member_of	faction
+mentions	any
+occurred_at	location
+originates_from	location
+owns	object
+parent_of	character
+part_of	object
+participated_in	event
+practises	cultural
+sibling_of	character
+speaks	language
+sworn_to	character
+sworn_to	faction
+witnessed	event
+
+## relation_domain_types (relation, type)
+allied_with	faction
+before	event
+caused	event
+concurrent_with	event
+created	character
+created	faction
+during	event
+hostile_to	faction
+located_in	location
+located_in	object
+married_to	character
+member_of	character
+member_of	faction
+mentions	character
+mentions	concept
+mentions	decision
+mentions	event
+mentions	faction
+mentions	language
+mentions	location
+mentions	object
+occurred_at	event
+originates_from	character
+owns	character
+owns	faction
+parent_of	character
+part_of	object
+participated_in	character
+participated_in	faction
+practises	character
+practises	faction
+sibling_of	character
+speaks	character
+speaks	faction
+sworn_to	character
+witnessed	character
+
+## relation_range_types (relation, type)
+allied_with	faction
+before	event
+caused	event
+concurrent_with	event
+created	character
+created	concept
+created	decision
+created	event
+created	faction
+created	language
+created	location
+created	object
+during	event
+hostile_to	faction
+located_in	location
+married_to	character
+member_of	faction
+mentions	character
+mentions	concept
+mentions	decision
+mentions	event
+mentions	faction
+mentions	language
+mentions	location
+mentions	object
+occurred_at	location
+originates_from	location
+owns	object
+parent_of	character
+part_of	object
+participated_in	event
+practises	concept
+practises	language
+sibling_of	character
+speaks	language
+sworn_to	character
+sworn_to	faction
+witnessed	event
+
+## eras (ordinal, key, name)
+0	founding	The Founding
+1	long_silence	The Long Silence
+2	third_reign	The Third Reign
+
+## acts (ordinal, key, name)
+0	act1	The Vale
+1	act2	The Long Road
+2	act3	The Ashen Court
+
+## entities (id, type, name, status, visibility, visibility_kind, visibility_act, era, earliest, latest, precision, file, length(body))
+char_kaelen_vor	character	Kaelen Vor	canon	public	public	NULL	third_reign	380	419	exact	characters/kaelen-vor.md	158
+char_miren	character	Miren	canon	public	public	NULL	third_reign	375	421	approximate	characters/miren.md	115
+char_orrin	character	Orrin	canon	spoiler:act2	spoiler	act2	third_reign	378	414	NULL	characters/orrin.md	72
+dec_siege_outcome	decision	The outcome of the Siege of Vale	canon	public	public	NULL	NULL	NULL	NULL	NULL	decisions/siege-outcome.md	119
+evt_siege_of_vale	event	The Siege of Vale	canon	public	public	NULL	third_reign	412	414	approximate	events/siege-of-vale.md	68
+fac_ashen_court	faction	The Ashen Court	canon	public	public	NULL	NULL	NULL	NULL	NULL	factions/ashen-court.md	125
+loc_vale_of_orrin	location	The Vale of Orrin	canon	public	public	NULL	NULL	NULL	NULL	NULL	locations/vale-of-orrin.md	66
+
+## aliases (entity, ord, alias)
+char_kaelen_vor	0	The Ashen Knight
+char_kaelen_vor	1	Vor
+char_miren	0	The Quiet Envoy
+evt_siege_of_vale	0	The Long Winter
+fac_ashen_court	0	The Court
+
+## edges (id, source, relation, target, priority, ord, note)
+1	char_kaelen_vor	member_of	fac_ashen_court	1	0	""
+2	char_kaelen_vor	originates_from	loc_vale_of_orrin	NULL	1	""
+3	char_kaelen_vor	participated_in	evt_siege_of_vale	NULL	2	""
+4	char_miren	member_of	fac_ashen_court	1	0	""
+5	char_miren	participated_in	evt_siege_of_vale	NULL	1	""
+6	char_orrin	originates_from	loc_vale_of_orrin	NULL	0	""
+7	char_orrin	participated_in	evt_siege_of_vale	NULL	1	""
+8	evt_siege_of_vale	occurred_at	loc_vale_of_orrin	NULL	0	""
+9	fac_ashen_court	participated_in	evt_siege_of_vale	NULL	0	""
+
+## statements (id, name, subject, relation, object, truth, status, visibility, visibility_kind, visibility_act, file, length(body))
+stmt_orrin_oath	Orrin was sworn to the Ashen Court	char_orrin	sworn_to	fac_ashen_court	false	canon	internal	internal	NULL	statements/orrin-oath.md	148
+
+## beliefs (id, agent, statement, value, confidence, since_era, since_earliest, since_latest, acquired_from, ord)
+1	char_kaelen_vor	stmt_orrin_oath	1	high	third_reign	412	NULL	char_miren	0
+2	char_miren	stmt_orrin_oath	0	high	NULL	NULL	NULL	NULL	0
+3	fac_ashen_court	stmt_orrin_oath	1	medium	NULL	NULL	NULL	NULL	0
+
+## assertions (id, agent, statement, value, audience, when_era, when_earliest, when_latest, ord)
+1	char_miren	stmt_orrin_oath	1	char_kaelen_vor	third_reign	412	NULL	0
+
+## outcomes (decision, ord, outcome)
+dec_siege_outcome	0	held
+dec_siege_outcome	1	fell
+dec_siege_outcome	2	betrayed
+
+## conditions (owner_kind, owner, ord, decision, outcome)
+edge	7	0	dec_siege_outcome	betrayed
+
+## search (id, kind, name, aliases, length(body))
+char_kaelen_vor	entity	Kaelen Vor	The Ashen Knight Vor	158
+char_miren	entity	Miren	The Quiet Envoy	115
+char_orrin	entity	Orrin	""	72
+dec_siege_outcome	entity	The outcome of the Siege of Vale	""	119
+evt_siege_of_vale	entity	The Siege of Vale	The Long Winter	68
+fac_ashen_court	entity	The Ashen Court	The Court	125
+loc_vale_of_orrin	entity	The Vale of Orrin	""	66
+stmt_orrin_oath	statement	Orrin was sworn to the Ashen Court	""	148
+

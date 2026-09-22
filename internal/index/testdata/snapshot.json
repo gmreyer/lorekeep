@@ -1,0 +1,628 @@
+{
+  "format": 1,
+  "pack": {
+    "name": "nightfall",
+    "version": "0.2.0",
+    "core_version": "0.1.0"
+  },
+  "vocabulary": {
+    "entity_types": [
+      {
+        "name": "character",
+        "description": "An individual, living or dead."
+      },
+      {
+        "name": "faction",
+        "description": "An organised group that can hold a position."
+      },
+      {
+        "name": "location",
+        "description": "A place, at whatever granularity."
+      },
+      {
+        "name": "event",
+        "description": "Something that happened at a point or interval in time."
+      },
+      {
+        "name": "object",
+        "description": "An artefact, item, or otherwise significant thing."
+      },
+      {
+        "name": "concept",
+        "description": "A magic system, religion, law, technology, or custom."
+      },
+      {
+        "name": "decision",
+        "description": "A branch point in the story, with a declared set of outcomes."
+      },
+      {
+        "name": "language",
+        "description": "A tongue or a script."
+      }
+    ],
+    "groups": [
+      {
+        "name": "agent",
+        "types": [
+          "character",
+          "faction"
+        ]
+      },
+      {
+        "name": "any",
+        "types": [
+          "character",
+          "concept",
+          "decision",
+          "event",
+          "faction",
+          "language",
+          "location",
+          "object"
+        ]
+      },
+      {
+        "name": "cultural",
+        "types": [
+          "concept",
+          "language"
+        ]
+      }
+    ],
+    "roles": [
+      {
+        "name": "identity",
+        "description": "Who or what something inherently is. Kinship and personal ties."
+      },
+      {
+        "name": "membership",
+        "description": "Belonging to an organised group. Drawn by the faction tree."
+      },
+      {
+        "name": "containment",
+        "description": "Physically or structurally inside. Transitive, and forms a hierarchy that terminates at a root — traversal walks the closure."
+      },
+      {
+        "name": "placement",
+        "description": "A non-spatial entity anchored to a location. Not transitive: it composes with containment rather than extending it."
+      },
+      {
+        "name": "participation",
+        "description": "An agent taking part in an event."
+      },
+      {
+        "name": "causation",
+        "description": "One thing bringing another about."
+      },
+      {
+        "name": "ownership",
+        "description": "Holding, or having made, something."
+      },
+      {
+        "name": "ordering",
+        "description": "Position on the timeline. Authoritative where it disagrees with a date."
+      }
+    ],
+    "relations": [
+      {
+        "name": "parent_of",
+        "domain": [
+          "character"
+        ],
+        "range": [
+          "character"
+        ],
+        "inverse": "child_of",
+        "role": "identity",
+        "description": "Is a parent of."
+      },
+      {
+        "name": "sibling_of",
+        "domain": [
+          "character"
+        ],
+        "range": [
+          "character"
+        ],
+        "symmetric": true,
+        "role": "identity",
+        "description": "Shares a parent with."
+      },
+      {
+        "name": "married_to",
+        "domain": [
+          "character"
+        ],
+        "range": [
+          "character"
+        ],
+        "symmetric": true,
+        "role": "identity",
+        "description": "Is married to."
+      },
+      {
+        "name": "member_of",
+        "domain": [
+          "character",
+          "faction"
+        ],
+        "range": [
+          "faction"
+        ],
+        "inverse": "has_member",
+        "role": "membership",
+        "description": "Belongs to an organised group."
+      },
+      {
+        "name": "located_in",
+        "domain": [
+          "location",
+          "object"
+        ],
+        "range": [
+          "location"
+        ],
+        "inverse": "contains",
+        "role": "containment",
+        "description": "Sits inside, spatially. Transitive."
+      },
+      {
+        "name": "occurred_at",
+        "domain": [
+          "event"
+        ],
+        "range": [
+          "location"
+        ],
+        "inverse": "was_site_of",
+        "role": "placement",
+        "description": "Happened at this place. Anchors an event to the map without claiming anything is inside the event."
+      },
+      {
+        "name": "participated_in",
+        "domain": [
+          "agent"
+        ],
+        "range": [
+          "event"
+        ],
+        "inverse": "had_participant",
+        "role": "participation",
+        "description": "Took part in."
+      },
+      {
+        "name": "caused",
+        "domain": [
+          "event"
+        ],
+        "range": [
+          "event"
+        ],
+        "inverse": "caused_by",
+        "role": "causation",
+        "description": "Brought about."
+      },
+      {
+        "name": "before",
+        "domain": [
+          "event"
+        ],
+        "range": [
+          "event"
+        ],
+        "inverse": "after",
+        "role": "ordering",
+        "description": "Happened before."
+      },
+      {
+        "name": "during",
+        "domain": [
+          "event"
+        ],
+        "range": [
+          "event"
+        ],
+        "inverse": "spans",
+        "role": "ordering",
+        "description": "Happened within the interval of."
+      },
+      {
+        "name": "concurrent_with",
+        "domain": [
+          "event"
+        ],
+        "range": [
+          "event"
+        ],
+        "symmetric": true,
+        "role": "ordering",
+        "description": "Happened at the same time as."
+      },
+      {
+        "name": "owns",
+        "domain": [
+          "agent"
+        ],
+        "range": [
+          "object"
+        ],
+        "inverse": "owned_by",
+        "role": "ownership",
+        "description": "Holds or possesses."
+      },
+      {
+        "name": "created",
+        "domain": [
+          "agent"
+        ],
+        "range": [
+          "any"
+        ],
+        "inverse": "created_by",
+        "role": "ownership",
+        "description": "Made or founded."
+      },
+      {
+        "name": "mentions",
+        "domain": [
+          "any"
+        ],
+        "range": [
+          "any"
+        ],
+        "description": "Untyped soft link: these are related and the author cannot yet say how. Watch its share of total edges — a rising share means the vocabulary is missing a type."
+      },
+      {
+        "name": "allied_with",
+        "domain": [
+          "faction"
+        ],
+        "range": [
+          "faction"
+        ],
+        "symmetric": true,
+        "description": "Holds a standing alliance with."
+      },
+      {
+        "name": "hostile_to",
+        "domain": [
+          "faction"
+        ],
+        "range": [
+          "faction"
+        ],
+        "symmetric": true,
+        "description": "Is in open enmity with."
+      },
+      {
+        "name": "sworn_to",
+        "domain": [
+          "character"
+        ],
+        "range": [
+          "character",
+          "faction"
+        ],
+        "inverse": "has_sworn",
+        "role": "membership",
+        "description": "Bound by oath of service to."
+      },
+      {
+        "name": "part_of",
+        "domain": [
+          "object"
+        ],
+        "range": [
+          "object"
+        ],
+        "inverse": "has_part",
+        "role": "containment",
+        "description": "Is a component of."
+      },
+      {
+        "name": "witnessed",
+        "domain": [
+          "character"
+        ],
+        "range": [
+          "event"
+        ],
+        "inverse": "witnessed_by",
+        "role": "participation",
+        "description": "Was present at, without taking part."
+      },
+      {
+        "name": "originates_from",
+        "domain": [
+          "character"
+        ],
+        "range": [
+          "location"
+        ],
+        "inverse": "origin_of",
+        "role": "placement",
+        "description": "Hails from."
+      },
+      {
+        "name": "speaks",
+        "domain": [
+          "agent"
+        ],
+        "range": [
+          "language"
+        ],
+        "inverse": "spoken_by",
+        "description": "Is fluent in."
+      },
+      {
+        "name": "practises",
+        "domain": [
+          "agent"
+        ],
+        "range": [
+          "cultural"
+        ],
+        "inverse": "practised_by",
+        "description": "Observes or adheres to."
+      }
+    ],
+    "eras": [
+      {
+        "key": "founding",
+        "name": "The Founding",
+        "ordinal": 0
+      },
+      {
+        "key": "long_silence",
+        "name": "The Long Silence",
+        "ordinal": 1
+      },
+      {
+        "key": "third_reign",
+        "name": "The Third Reign",
+        "ordinal": 2
+      }
+    ],
+    "acts": [
+      {
+        "key": "act1",
+        "name": "The Vale",
+        "ordinal": 0
+      },
+      {
+        "key": "act2",
+        "name": "The Long Road",
+        "ordinal": 1
+      },
+      {
+        "key": "act3",
+        "name": "The Ashen Court",
+        "ordinal": 2
+      }
+    ]
+  },
+  "entities": [
+    {
+      "id": "char_kaelen_vor",
+      "type": "character",
+      "name": "Kaelen Vor",
+      "aliases": [
+        "The Ashen Knight",
+        "Vor"
+      ],
+      "status": "canon",
+      "visibility": "public",
+      "interval": {
+        "era": "third_reign",
+        "earliest": 380,
+        "latest": 419,
+        "precision": "exact"
+      },
+      "edges": [
+        {
+          "id": 1,
+          "relation": "member_of",
+          "target": "fac_ashen_court",
+          "priority": 1
+        },
+        {
+          "id": 2,
+          "relation": "originates_from",
+          "target": "loc_vale_of_orrin"
+        },
+        {
+          "id": 3,
+          "relation": "participated_in",
+          "target": "evt_siege_of_vale"
+        }
+      ],
+      "beliefs": [
+        {
+          "id": 1,
+          "statement": "stmt_orrin_oath",
+          "value": true,
+          "confidence": "high",
+          "since": {
+            "era": "third_reign",
+            "earliest": 412
+          },
+          "acquired_from": "char_miren"
+        }
+      ],
+      "file": "characters/kaelen-vor.md",
+      "body": "Kaelen Vor came to the Vale as a conscript and left it as its warden. What he\nbelieves about Orrin he believes because Miren told him, once, in a winter camp."
+    },
+    {
+      "id": "char_miren",
+      "type": "character",
+      "name": "Miren",
+      "aliases": [
+        "The Quiet Envoy"
+      ],
+      "status": "canon",
+      "visibility": "public",
+      "interval": {
+        "era": "third_reign",
+        "earliest": 375,
+        "latest": 421,
+        "precision": "approximate"
+      },
+      "edges": [
+        {
+          "id": 4,
+          "relation": "member_of",
+          "target": "fac_ashen_court",
+          "priority": 1
+        },
+        {
+          "id": 5,
+          "relation": "participated_in",
+          "target": "evt_siege_of_vale"
+        }
+      ],
+      "beliefs": [
+        {
+          "id": 2,
+          "statement": "stmt_orrin_oath",
+          "value": false,
+          "confidence": "high"
+        }
+      ],
+      "assertions": [
+        {
+          "id": 1,
+          "statement": "stmt_orrin_oath",
+          "value": true,
+          "audience": "char_kaelen_vor",
+          "when": {
+            "era": "third_reign",
+            "earliest": 412
+          }
+        }
+      ],
+      "file": "characters/miren.md",
+      "body": "Miren knows what the oath was worth and says the opposite. The graph records\nboth, and the pair of them is the lie."
+    },
+    {
+      "id": "char_orrin",
+      "type": "character",
+      "name": "Orrin",
+      "status": "canon",
+      "visibility": "spoiler:act2",
+      "interval": {
+        "era": "third_reign",
+        "earliest": 378,
+        "latest": 414
+      },
+      "edges": [
+        {
+          "id": 6,
+          "relation": "originates_from",
+          "target": "loc_vale_of_orrin"
+        },
+        {
+          "id": 7,
+          "relation": "participated_in",
+          "target": "evt_siege_of_vale",
+          "valid_in": [
+            {
+              "decision": "dec_siege_outcome",
+              "outcome": "betrayed"
+            }
+          ]
+        }
+      ],
+      "file": "characters/orrin.md",
+      "body": "Whether Orrin was at the siege at all depends on which siege you are in."
+    },
+    {
+      "id": "dec_siege_outcome",
+      "type": "decision",
+      "name": "The outcome of the Siege of Vale",
+      "status": "canon",
+      "visibility": "public",
+      "outcomes": [
+        "held",
+        "fell",
+        "betrayed"
+      ],
+      "file": "decisions/siege-outcome.md",
+      "body": "The branch point the whole second act turns on. Everything conditional in this\nworld names one of these three outcomes."
+    },
+    {
+      "id": "evt_siege_of_vale",
+      "type": "event",
+      "name": "The Siege of Vale",
+      "aliases": [
+        "The Long Winter"
+      ],
+      "status": "canon",
+      "visibility": "public",
+      "interval": {
+        "era": "third_reign",
+        "earliest": 412,
+        "latest": 414,
+        "precision": "approximate"
+      },
+      "edges": [
+        {
+          "id": 8,
+          "relation": "occurred_at",
+          "target": "loc_vale_of_orrin"
+        }
+      ],
+      "file": "events/siege-of-vale.md",
+      "body": "Three winters of it, and no two accounts agree on the year it ended."
+    },
+    {
+      "id": "fac_ashen_court",
+      "type": "faction",
+      "name": "The Ashen Court",
+      "aliases": [
+        "The Court"
+      ],
+      "status": "canon",
+      "visibility": "public",
+      "edges": [
+        {
+          "id": 9,
+          "relation": "participated_in",
+          "target": "evt_siege_of_vale"
+        }
+      ],
+      "beliefs": [
+        {
+          "id": 3,
+          "statement": "stmt_orrin_oath",
+          "value": true,
+          "confidence": "medium"
+        }
+      ],
+      "file": "factions/ashen-court.md",
+      "body": "The Court holds the oath was given. Miren, who is of the Court, does not — and\nthat divergence is the whole of her character."
+    },
+    {
+      "id": "loc_vale_of_orrin",
+      "type": "location",
+      "name": "The Vale of Orrin",
+      "status": "canon",
+      "visibility": "public",
+      "file": "locations/vale-of-orrin.md",
+      "body": "Named for a family, not a man, whatever the Court's histories say."
+    }
+  ],
+  "statements": [
+    {
+      "id": "stmt_orrin_oath",
+      "name": "Orrin was sworn to the Ashen Court",
+      "subject": "char_orrin",
+      "relation": "sworn_to",
+      "object": "fac_ashen_court",
+      "truth": "false",
+      "status": "canon",
+      "visibility": "internal",
+      "file": "statements/orrin-oath.md",
+      "body": "Reified because Kaelen needs to be wrong about it. The Court's record says the\noath was given; it was not. Plain edges carry the rest of this world."
+    }
+  ]
+}
