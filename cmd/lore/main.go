@@ -25,7 +25,7 @@ func main() {
 const (
 	exitOK      = 0
 	exitInvalid = 1 // the world has blocking errors
-	exitUsage   = 2 // bad invocation, or the repository could not be read
+	exitUsage   = 2 // bad invocation, or the repository could not be read: no schema/ or world/
 )
 
 func run(args []string, stdout, stderr io.Writer) int {

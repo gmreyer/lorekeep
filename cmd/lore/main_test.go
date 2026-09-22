@@ -275,6 +275,63 @@ func TestMissingRepo(t *testing.T) {
 	}
 }
 
+// TestMissingWorldDirectory: git stores no empty directories, so a world repo
+// whose writer deleted every entity has no world/ after a fresh clone. That is
+// a repository that cannot be read, not a world with errors in it.
+func TestMissingWorldDirectory(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(t *testing.T, repo string)
+		want  []string
+	}{
+		{
+			name: "world/ absent",
+			setup: func(t *testing.T, repo string) {
+				if err := os.RemoveAll(filepath.Join(repo, "world")); err != nil {
+					t.Fatal(err)
+				}
+			},
+			want: []string{"world/", ".gitkeep"},
+		},
+		{
+			name: "world is a file",
+			setup: func(t *testing.T, repo string) {
+				if err := os.RemoveAll(filepath.Join(repo, "world")); err != nil {
+					t.Fatal(err)
+				}
+				write(t, repo, "world", "not a directory\n")
+			},
+			want: []string{"world", "not a directory"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := copyTree(t, fixtureRepo)
+			tt.setup(t, repo)
+
+			out := t.TempDir()
+			code, _, stderr := exec(t, "build", repo, "-out", out)
+
+			if code != exitUsage {
+				t.Errorf("exit %d, want %d\nstderr:\n%s", code, exitUsage, stderr)
+			}
+			for _, s := range tt.want {
+				if !strings.Contains(stderr, s) {
+					t.Errorf("stderr should mention %q:\n%s", s, stderr)
+				}
+			}
+			if strings.Contains(stderr, "unreadable") {
+				t.Errorf("a missing world is not a finding:\n%s", stderr)
+			}
+			for _, name := range []string{index.IndexFile, index.SnapshotFile} {
+				if _, err := os.Stat(filepath.Join(out, name)); !os.IsNotExist(err) {
+					t.Errorf("%s exists after a failed build", name)
+				}
+			}
+		})
+	}
+}
+
 func exec(t *testing.T, args ...string) (int, string, string) {
 	t.Helper()
 	var stdout, stderr bytes.Buffer

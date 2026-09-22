@@ -250,6 +250,8 @@ go.mod                   # pins the lore-core version
 build/                   # derived, gitignored
 ```
 
+`schema/` and `world/` must both exist; a build without either exits as an unreadable repository, not as a world with errors. Git stores no empty directories, so a world with no content yet commits `world/.gitkeep`.
+
 ### Entity file
 
 ```yaml
