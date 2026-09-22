@@ -74,28 +74,38 @@ Never claim something works without running it. Golden diffs get read, not accep
 
 ## Commits
 
-> **TODO — NOT YET RATIFIED. Decide these limits, then delete this block.**
-> The rules below came out of one session and have been exercised on exactly five
-> commits. Before locking them, settle:
-> - Is 25 characters enough to tell two commits on the same package apart?
-> - Cap the body by lines, by characters, or both?
-> - Should trailers (`Co-Authored-By`) count against the budget?
-> - Does a revert or a merge get an exemption?
->
-> Until this block is gone, treat the rules as provisional: follow them, but raise it
-> rather than assuming they are settled.
+As short as possible, yet a reader knows every effect without opening the diff.
 
-- **Subject: 25 characters maximum.** Imperative, no trailing period.
-- **Body: 10 lines maximum, 50 characters per line.**
-- Prefer bullets to paragraphs. At 50 columns a paragraph fragments across four lines
-  and blank separators eat the budget.
-- Trailers sit outside the body budget.
-- One logical change per commit, and each commit builds and tests green on its own.
+```
+Add the validator
 
-At this width a message cannot hold reasoning. The *why* belongs in doc comments and
-`docs/spec.md` — if it is not there, it is nowhere.
+- add 18 blocking checks, 5 warnings
+- add CI gate: referential integrity only
+- add id rule: [a-z0-9_]
+```
 
-Commits up to `c47463a` predate this and are long-form. Do not treat them as the model.
+- **Summary:** one line, 50 characters maximum. Capitalised, imperative, no trailing
+  period, no scope prefix.
+- **Body:** a blank line, then one bullet per observable effect (a behaviour, an API,
+  a rule), not one per file. Lowercase, 72 characters per line.
+- **Every bullet starts with a verb from this closed set:**
+  - `add X`
+  - `remove X`
+  - `update X: old → new`
+  - `fix <symptom>`: what was broken, not how it was fixed
+  - `move X → path`
+  - `rename a → b`
+- **Nouns are identifiers and paths** (`internal/index`, `Interval`), not prose.
+- **Facts only, no reasoning.** The *why* belongs in doc comments and `docs/spec.md`;
+  if it is not there, it is nowhere.
+- **Omit the body** when the summary is the whole change.
+- **No line cap.** Too many bullets means the commit should be split.
+- **One logical change per commit**, and each commit builds and tests green on its own.
+- **Reverts and merges** keep git's default message.
+- **No Claude attribution.** No `Co-Authored-By` trailer, and no "Generated with"
+  line in PR descriptions.
+
+Commits up to `0dc640e` predate this format. Do not treat them as the model.
 
 ## Constraints
 
