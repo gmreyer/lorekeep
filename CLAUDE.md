@@ -72,6 +72,31 @@ Everything else: implement directly.
 
 Never claim something works without running it. Golden diffs get read, not accepted.
 
+## Commits
+
+> **TODO — NOT YET RATIFIED. Decide these limits, then delete this block.**
+> The rules below came out of one session and have been exercised on exactly five
+> commits. Before locking them, settle:
+> - Is 25 characters enough to tell two commits on the same package apart?
+> - Cap the body by lines, by characters, or both?
+> - Should trailers (`Co-Authored-By`) count against the budget?
+> - Does a revert or a merge get an exemption?
+>
+> Until this block is gone, treat the rules as provisional: follow them, but raise it
+> rather than assuming they are settled.
+
+- **Subject: 25 characters maximum.** Imperative, no trailing period.
+- **Body: 10 lines maximum, 50 characters per line.**
+- Prefer bullets to paragraphs. At 50 columns a paragraph fragments across four lines
+  and blank separators eat the budget.
+- Trailers sit outside the body budget.
+- One logical change per commit, and each commit builds and tests green on its own.
+
+At this width a message cannot hold reasoning. The *why* belongs in doc comments and
+`docs/spec.md` — if it is not there, it is nowhere.
+
+Commits up to `c47463a` predate this and are long-form. Do not treat them as the model.
+
 ## Constraints
 
 - Go only. The one exception is the editor's browser UI: templ and htmx, with a
