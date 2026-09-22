@@ -1,0 +1,6 @@
+# The core schema pack. Structural relations only: the vocabulary any fictional
+# world needs and that the tooling itself depends on. Nothing world-flavoured
+# belongs here — that is what a project pack is for.
+name: core
+version: 0.1.0
+description: Structural relation vocabulary, project-independent.

@@ -1,0 +1,23 @@
+types:
+  - name: character
+    description: An individual, living or dead.
+  - name: faction
+    description: An organised group that can hold a position.
+  - name: location
+    description: A place, at whatever granularity.
+  - name: event
+    description: Something that happened at a point or interval in time.
+  - name: object
+    description: An artefact, item, or otherwise significant thing.
+  - name: concept
+    description: A magic system, religion, law, technology, or custom.
+  - name: decision
+    description: A branch point in the story, with a declared set of outcomes.
+
+groups:
+  - name: agent
+    includes: [character, faction]
+    description: An entity that can hold beliefs.
+  - name: any
+    includes: ["*"]
+    description: Every entity type, including those a project pack adds.

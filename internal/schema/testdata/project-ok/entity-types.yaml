@@ -1,0 +1,8 @@
+types:
+  - name: language
+    description: A tongue or a script.
+
+groups:
+  - name: cultural
+    includes: [concept, language]
+    description: Things a people practise. Mixes a core type with a project one.

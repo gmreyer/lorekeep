@@ -1,0 +1,131 @@
+# Roles are the binding surface for graph projections and traversal queries.
+# Views bind to a role, never to a relation name, so a project that names
+# containment something else still gets its geography view. The set is closed
+# and core-owned: a project pack uses these and may not declare new ones,
+# because a role with no view behind it is decoration.
+roles:
+  - name: identity
+    description: Who or what something inherently is. Kinship and personal ties.
+  - name: membership
+    description: Belonging to an organised group. Drawn by the faction tree.
+  - name: containment
+    description: >-
+      Physically or structurally inside. Transitive, and forms a hierarchy that
+      terminates at a root — traversal walks the closure.
+  - name: placement
+    description: >-
+      A non-spatial entity anchored to a location. Not transitive: it composes
+      with containment rather than extending it.
+  - name: participation
+    description: An agent taking part in an event.
+  - name: causation
+    description: One thing bringing another about.
+  - name: ownership
+    description: Holding, or having made, something.
+  - name: ordering
+    description: >-
+      Position on the timeline. Authoritative where it disagrees with a date.
+
+relations:
+  # identity
+  - name: parent_of
+    domain: [character]
+    range: [character]
+    inverse: child_of
+    role: identity
+    description: Is a parent of.
+  - name: sibling_of
+    domain: [character]
+    range: [character]
+    symmetric: true
+    role: identity
+    description: Shares a parent with.
+  - name: married_to
+    domain: [character]
+    range: [character]
+    symmetric: true
+    role: identity
+    description: Is married to.
+
+  # membership
+  - name: member_of
+    domain: [character, faction]
+    range: [faction]
+    inverse: has_member
+    role: membership
+    description: Belongs to an organised group.
+
+  # containment and placement
+  - name: located_in
+    domain: [location, object]
+    range: [location]
+    inverse: contains
+    role: containment
+    description: Sits inside, spatially. Transitive.
+  - name: occurred_at
+    domain: [event]
+    range: [location]
+    inverse: was_site_of
+    role: placement
+    description: >-
+      Happened at this place. Anchors an event to the map without claiming
+      anything is inside the event.
+
+  # participation
+  - name: participated_in
+    domain: [agent]
+    range: [event]
+    inverse: had_participant
+    role: participation
+    description: Took part in.
+
+  # causation
+  - name: caused
+    domain: [event]
+    range: [event]
+    inverse: caused_by
+    role: causation
+    description: Brought about.
+
+  # ordering
+  - name: before
+    domain: [event]
+    range: [event]
+    inverse: after
+    role: ordering
+    description: Happened before.
+  - name: during
+    domain: [event]
+    range: [event]
+    inverse: spans
+    role: ordering
+    description: Happened within the interval of.
+  - name: concurrent_with
+    domain: [event]
+    range: [event]
+    symmetric: true
+    role: ordering
+    description: Happened at the same time as.
+
+  # ownership
+  - name: owns
+    domain: [agent]
+    range: [object]
+    inverse: owned_by
+    role: ownership
+    description: Holds or possesses.
+  - name: created
+    domain: [agent]
+    range: [any]
+    inverse: created_by
+    role: ownership
+    description: Made or founded.
+
+  # the safety valve
+  - name: mentions
+    domain: [any]
+    range: [any]
+    description: >-
+      Untyped soft link: these are related and the author cannot yet say how.
+      Watch its share of total edges — a rising share means the vocabulary is
+      missing a type.

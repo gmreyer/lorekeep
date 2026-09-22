@@ -1,0 +1,12 @@
+# Go build and test artifacts
+/lore
+/lore.exe
+*.exe
+*.test
+*.out
+/build/
+
+# Per-developer agent and editor tooling
+/.serena/
+/.idea/
+/.vscode/
