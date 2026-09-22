@@ -5,8 +5,18 @@ builder, a query resolver, an MCP server, and a web editor. Authored lore lives 
 separate project repo as Markdown + YAML frontmatter; this repo is installed there as a
 versioned Go module.
 
-Full design: `docs/spec.md`. Read the relevant section before changing behaviour — this
-file lists rules, not reasoning.
+The design lives outside the repo, in two Claude Docs read through the Claude Docs
+connector:
+
+- [Lore Graph — System Design Spec](https://claude.ai/artifact/Rbpb6TD77aZXTVK9YKUnPi):
+  the full design. Read the relevant section before changing behaviour — this file lists
+  rules, not reasoning.
+- [Lore Graph — Implementation Status](https://claude.ai/artifact/6f7YChDHeKa8LNuaMUwyCY):
+  what of the spec is built.
+
+Update either doc only when a real change lands, and only after review: show the user the
+exact proposed edit to the spec or status doc, ask explicitly for approval, and write it
+only on a clear yes. Never edit either doc as a side effect of other work.
 
 ## Current phase
 
@@ -58,7 +68,6 @@ internal/index/    build pipeline, SQLite index, snapshot export
 internal/resolve/  query resolver
 internal/mcp/      MCP server
 internal/editor/   web editor (templ + htmx)
-docs/spec.md       the design spec
 ```
 
 ## Workflow
@@ -96,7 +105,7 @@ Add the validator
   - `move X → path`
   - `rename a → b`
 - **Nouns are identifiers and paths** (`internal/index`, `Interval`), not prose.
-- **Facts only, no reasoning.** The *why* belongs in doc comments and `docs/spec.md`;
+- **Facts only, no reasoning.** The *why* belongs in doc comments and the spec;
   if it is not there, it is nowhere.
 - **Omit the body** when the summary is the whole change.
 - **No line cap.** Too many bullets means the commit should be split.
