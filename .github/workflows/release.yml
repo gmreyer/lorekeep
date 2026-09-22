@@ -1,0 +1,69 @@
+# Builds lore.exe for writers and attaches it to the release for each version
+# tag. Writers run lore from a single .exe with nothing else installed, so the
+# binary is pure Go (CGO_ENABLED=0) for windows/amd64.
+#
+# The job also runs, build-only, on a pull request that changes this file, so a
+# broken release step shows up in review rather than on the next tag.
+name: release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  pull_request:
+    paths: ['.github/workflows/release.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Go stamps the binary's version from the tag, so the checkout needs
+          # the tags, not just the commit.
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test ./...
+
+      - name: Build lore.exe
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: go build -trimpath -ldflags="-s -w" -o lore.exe ./cmd/lore
+
+      - name: Check the version stamp
+        shell: pwsh
+        run: |
+          $got = (./lore.exe version).Trim()
+          Write-Output $got
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $got -ne "lore $env:GITHUB_REF_NAME") {
+            Write-Error "lore.exe reports '$got', want 'lore $env:GITHUB_REF_NAME'"
+            exit 1
+          }
+
+      - name: Write SHA256SUMS
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash lore.exe -Algorithm SHA256).Hash.ToLower()
+          # LF, not CRLF, so `sha256sum -c` reads it on any platform.
+          [IO.File]::WriteAllText("$PWD/SHA256SUMS", "$hash  lore.exe`n")
+          Get-Content SHA256SUMS
+
+      # A draft, so the notes can say what the release breaks before writers
+      # see it. Publishing is a person's decision.
+      - name: Create the draft release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create $env:GITHUB_REF_NAME lore.exe SHA256SUMS
+          --verify-tag --draft --generate-notes --title $env:GITHUB_REF_NAME

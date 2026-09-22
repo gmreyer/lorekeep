@@ -102,6 +102,30 @@ constrains the pipeline more than it constrains the code.
 - No Make and no shell scripts in the build path. Anything a writer runs must work
   from a single `.exe` with nothing else installed.
 
+## Getting lore.exe without Go
+
+Writers who do not have Go installed run a prebuilt `lore.exe` instead of
+`go tool lore`. Each version tag, from v0.2.0 on, has a release on this repo's
+[Releases page](https://github.com/gmreyer/lore-core/releases) with `lore.exe`
+(windows/amd64, no cgo) and `SHA256SUMS` attached. This repo is private, so
+downloading needs a GitHub account with read access to it.
+
+Download the release matching the version in your world repo's `go.mod`, check it,
+and confirm the version:
+
+```powershell
+(Get-FileHash lore.exe -Algorithm SHA256).Hash.ToLower()   # compare with SHA256SUMS
+.\lore.exe version
+```
+
+The binary is not code-signed, so on first run Windows SmartScreen may say it
+"protected your PC". Choose **More info → Run anyway**, having checked the hash
+first.
+
+Releases are cut by pushing a `vX.Y.Z` tag. `.github/workflows/release.yml` tests,
+builds, checks that the binary reports the tag, and creates a **draft** release.
+A person writes what the release breaks into its notes and publishes it.
+
 ## Layout
 
 ```
