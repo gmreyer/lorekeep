@@ -4,7 +4,8 @@
 *.exe
 *.test
 *.out
-/build/
+# Derived build output, at any level: a world repo builds into its own build/.
+build/
 
 # Per-developer agent and editor tooling
 /.serena/
