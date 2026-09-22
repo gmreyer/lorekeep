@@ -311,7 +311,7 @@ At this scale the build is a few seconds. Run it on every commit and on every sa
 - Character participating in an event outside their lifespan
 - Statement with no believers, or believed by no one and asserted by no one
 - Conflicting inherited faction beliefs with no explicit override and no priority order
-- Orphan entity: no inbound edges from any canon entity
+- Orphan entity: no inbound edges from any canon entity. A derived inverse counts as inbound, so an edge whose relation is symmetric or has an inverse references its author too; only a one-way relation such as `mentions` does not
 - Canon entity depending on a `draft` entity
 
 ### Health metrics

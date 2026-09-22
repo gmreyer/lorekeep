@@ -28,6 +28,13 @@ func (v *validator) checkWarnings() {
 // an edge. Counting only typed edges would warn loudest about exactly the
 // entities the story turns on.
 //
+// An edge also references its own author when the graph holds it in both
+// directions: a symmetric relation reads the same from either end, and a
+// relation with a declared inverse has a derived edge pointing back. The spec's
+// "inbound edges" includes those, since an inverse is declared once and never
+// authored. Only a one-way relation, such as core's mentions, leaves its
+// author unreferenced. Whether a relation is two-way comes from the pack.
+//
 // Only canon documents contribute, so a draft file cannot quietly keep a
 // genuinely orphaned entity looking connected.
 func (v *validator) references() map[string]bool {
@@ -51,6 +58,9 @@ func (v *validator) references() map[string]bool {
 		}
 		for _, r := range e.Relations {
 			note(r.Target)
+			if v.twoWay(r.Type) {
+				note(e.ID)
+			}
 			noteConditions(r.ValidIn)
 		}
 		for _, b := range e.Beliefs {
@@ -73,6 +83,12 @@ func (v *validator) references() map[string]bool {
 	return refs
 }
 
+// twoWay reports whether the graph holds a relation in both directions.
+func (v *validator) twoWay(name string) bool {
+	rel, ok := v.pack.Relation(name)
+	return ok && (rel.Symmetric || rel.Inverse != "")
+}
+
 func (v *validator) warnOrphans(refs map[string]bool) {
 	for _, e := range v.w.Entities {
 		// Only canon is worth warning about. A draft entity nothing points at
@@ -81,7 +97,7 @@ func (v *validator) warnOrphans(refs map[string]bool) {
 			continue
 		}
 		v.warn(e.Source, CodeOrphan, "id",
-			"nothing in canon refers to %q: no edge, no statement, and no condition names it",
+			"nothing in canon refers to %q: no inbound or two-way edge, no statement, and no condition names it",
 			e.ID)
 	}
 }

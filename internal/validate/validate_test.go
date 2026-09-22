@@ -531,6 +531,98 @@ beliefs:
 	}
 }
 
+// TestOrphanReferences pins which edges make their author referenced.
+//
+// An edge whose relation is symmetric or has a derived inverse is inbound at
+// both ends: the inverse is an edge the graph holds even though nobody wrote
+// it. Only a one-way relation, which in the fixture pack is mentions alone,
+// leaves its author unreferenced.
+func TestOrphanReferences(t *testing.T) {
+	ilse := func(status, relations string) string {
+		return entityFile(`id: char_ilse_marrow
+type: character
+name: Ilse Marrow
+status: ` + status + `
+visibility: public
+relations:
+` + relations)
+	}
+	tomas := func(status, relations string) string {
+		fm := `id: char_tomas_marrow
+type: character
+name: Tomas Marrow
+status: ` + status + `
+visibility: public
+`
+		if relations != "" {
+			fm += "relations:\n" + relations
+		}
+		return entityFile(fm)
+	}
+
+	tests := []struct {
+		name    string
+		overlay map[string]string
+		want    []world.Code
+	}{
+		{
+			name: "a one-sided symmetric edge references both ends",
+			overlay: map[string]string{
+				"world/characters/ilse-marrow.md":  ilse("canon", "  - { type: sibling_of, target: char_tomas_marrow }"),
+				"world/characters/tomas-marrow.md": tomas("canon", ""),
+			},
+		},
+		{
+			name: "a project symmetric relation references both ends",
+			overlay: map[string]string{
+				"world/factions/grey-hand.md": entityFile(`id: fac_grey_hand
+type: faction
+name: The Grey Hand
+status: canon
+visibility: public
+relations:
+  - { type: allied_with, target: fac_ashen_court }`),
+			},
+		},
+		{
+			name: "an edge with a derived inverse references its author",
+			overlay: map[string]string{
+				"world/characters/ilse-marrow.md": ilse("canon", "  - { type: member_of, target: fac_ashen_court }"),
+			},
+		},
+		{
+			name: "an author of one-way edges only is still an orphan",
+			overlay: map[string]string{
+				"world/concepts/oathbinding.md": entityFile(`id: con_oathbinding
+type: concept
+name: Oathbinding
+status: canon
+visibility: public
+relations:
+  - { type: mentions, target: fac_ashen_court }`),
+			},
+			want: []world.Code{CodeOrphan},
+		},
+		{
+			// Only canon contributes references, in either direction: a draft
+			// sibling cannot keep a canon entity looking connected.
+			name: "a symmetric edge from a draft references neither end",
+			overlay: map[string]string{
+				"world/characters/ilse-marrow.md":  ilse("draft", "  - { type: sibling_of, target: char_tomas_marrow }"),
+				"world/characters/tomas-marrow.md": tomas("canon", ""),
+			},
+			want: []world.Code{CodeOrphan},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := check(t, tt.overlay)
+			wantWarnings(t, fs, tt.want...)
+		})
+	}
+}
+
 // TestUnknownTypeSuppressesTheDirectoryWarning: an entity whose type is not
 // declared has one real problem, and a directory warning derived from that
 // same unknown type is noise piled on top of it.
