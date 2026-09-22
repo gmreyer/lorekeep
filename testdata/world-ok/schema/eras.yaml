@@ -1,0 +1,12 @@
+# Order is list order. There is no sequence field, so gaps and duplicate
+# ordinals are unrepresentable and a reordering reads as a readable diff.
+eras:
+  - key: founding
+    name: The Founding
+    description: Before the Courts.
+  - key: long_silence
+    name: The Long Silence
+    aliases: ["the Silence"]
+  - key: third_reign
+    name: The Third Reign
+    description: The era of the Ashen Court.

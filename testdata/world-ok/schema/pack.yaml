@@ -1,0 +1,7 @@
+# The Nightfall project pack. Fixture world for the validator, the index, and
+# the CLI: one world repo, read by all three, so there is exactly one copy of
+# the vocabulary to keep honest.
+name: nightfall
+version: 0.2.0
+core_version: 0.1.0
+description: Fixture world pack. Exercises every part of the format.

@@ -1,0 +1,61 @@
+relations:
+  # symmetric, and deliberately roleless: no projection draws diplomacy yet.
+  - name: allied_with
+    domain: [faction]
+    range: [faction]
+    symmetric: true
+    description: Holds a standing alliance with.
+  - name: hostile_to
+    domain: [faction]
+    range: [faction]
+    symmetric: true
+    description: Is in open enmity with.
+
+  # a project relation reusing a core role, and ranging over two types
+  - name: sworn_to
+    domain: [character]
+    range: [character, faction]
+    inverse: has_sworn
+    role: membership
+    description: Bound by oath of service to.
+
+  # object composition: core leaves this out, a world with artefacts wants it
+  - name: part_of
+    domain: [object]
+    range: [object]
+    inverse: has_part
+    role: containment
+    description: Is a component of.
+
+  # A second participation relation, named nothing like the core one. The
+  # lifespan check must find it through its role, because a validator that
+  # looked for "participated_in" by name would silently stop working in any
+  # world that calls it something else.
+  - name: witnessed
+    domain: [character]
+    range: [event]
+    inverse: witnessed_by
+    role: participation
+    description: Was present at, without taking part.
+
+  # placement, so characters land on the geography view alongside events
+  - name: originates_from
+    domain: [character]
+    range: [location]
+    inverse: origin_of
+    role: placement
+    description: Hails from.
+
+  # domain is a core group, range is a project type
+  - name: speaks
+    domain: [agent]
+    range: [language]
+    inverse: spoken_by
+    description: Is fluent in.
+
+  # range is a project group that mixes core and project types
+  - name: practises
+    domain: [agent]
+    range: [cultural]
+    inverse: practised_by
+    description: Observes or adheres to.

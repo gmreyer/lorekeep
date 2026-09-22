@@ -1,0 +1,12 @@
+# Order is list order. spoiler:act2 must imply that an act-1 reader is
+# excluded, so the list is ordered and there is no sequence field to disagree
+# with it.
+acts:
+  - key: act1
+    name: The Vale
+    description: Up to the siege.
+  - key: act2
+    name: The Long Road
+    description: The consequences of the siege.
+  - key: act3
+    name: The Ashen Court
