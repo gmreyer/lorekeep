@@ -105,8 +105,6 @@ Add the validator
 - **No Claude attribution.** No `Co-Authored-By` trailer, and no "Generated with"
   line in PR descriptions.
 
-Commits up to `0dc640e` predate this format. Do not treat them as the model.
-
 ## Constraints
 
 - Go only. The one exception is the editor's browser UI: templ and htmx, with a
