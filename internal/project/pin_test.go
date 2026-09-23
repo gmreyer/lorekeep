@@ -65,3 +65,21 @@ func TestPinRoundTrip(t *testing.T) {
 		t.Error("WritePin accepted a non-release version")
 	}
 }
+
+func TestCompare(t *testing.T) {
+	tests := []struct {
+		a, b string
+		want int
+	}{
+		{"v0.3.0", "v0.3.0", 0},
+		{"v0.3.0", "v0.3.1", -1},
+		{"v0.10.0", "v0.9.9", 1},
+		{"v1.0.0", "v0.99.99", 1},
+		{"v0.2.1", "v0.3.0", -1},
+	}
+	for _, tt := range tests {
+		if got := Compare(tt.a, tt.b); got != tt.want {
+			t.Errorf("Compare(%s, %s) = %d, want %d", tt.a, tt.b, got, tt.want)
+		}
+	}
+}

@@ -74,6 +74,9 @@ func (o Options) check() error {
 		return fmt.Errorf("project name %q: use lowercase letters, digits and underscores", o.Name)
 	case !project.IsRelease(o.Version):
 		return fmt.Errorf("lorekeep version %q: not a release version like v1.2.3", o.Version)
+	case project.Compare(o.Version, project.FirstPinVersion) < 0:
+		return fmt.Errorf("lorekeep version %s: the first version that reads %s is %s",
+			o.Version, project.PinFile, project.FirstPinVersion)
 	case o.CI && !o.Git:
 		return errors.New("a CI workflow needs the git files too")
 	}

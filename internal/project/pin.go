@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -18,6 +19,10 @@ import (
 // old binaries dispatching to new ones, so nothing may ever be added to it.
 const PinFile = "lorekeep-version"
 
+// FirstPinVersion is the first lorekeep that reads PinFile. A project cannot
+// pin anything older: an older binary would ignore the pin it was run for.
+const FirstPinVersion = "v0.3.0"
+
 // releasePattern is a release tag: vMAJOR.MINOR.PATCH, nothing more. A
 // pre-release or a pseudo-version is not something a world can pin, because
 // only release tags have a lorekeep.exe to download.
@@ -26,6 +31,26 @@ var releasePattern = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|
 // IsRelease reports whether v is a release version a world can pin.
 func IsRelease(v string) bool {
 	return releasePattern.MatchString(v)
+}
+
+// Compare orders two release versions: -1 if a is older than b, 0 if they are
+// equal, +1 if a is newer. Both must satisfy IsRelease.
+func Compare(a, b string) int {
+	pa, pb := releasePattern.FindStringSubmatch(a), releasePattern.FindStringSubmatch(b)
+	if pa == nil || pb == nil {
+		panic(fmt.Sprintf("project.Compare(%q, %q): not release versions", a, b))
+	}
+	for i := 1; i <= 3; i++ {
+		x, _ := strconv.Atoi(pa[i])
+		y, _ := strconv.Atoi(pb[i])
+		switch {
+		case x < y:
+			return -1
+		case x > y:
+			return 1
+		}
+	}
+	return 0
 }
 
 // ErrNoPin means the directory has no pin file.
