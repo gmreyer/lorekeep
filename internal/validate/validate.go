@@ -3,8 +3,8 @@ package validate
 import (
 	"fmt"
 
-	"github.com/gmreyer/lore-core/internal/schema"
-	"github.com/gmreyer/lore-core/internal/world"
+	"github.com/gmreyer/lorekeep/internal/schema"
+	"github.com/gmreyer/lorekeep/internal/world"
 )
 
 // Validate checks a loaded world against a merged schema pack and returns

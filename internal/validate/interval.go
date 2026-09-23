@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gmreyer/lore-core/internal/world"
+	"github.com/gmreyer/lorekeep/internal/world"
 )
 
 // The time model is eras plus optional fuzzy years, so comparison is coarse on

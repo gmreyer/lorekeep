@@ -1,4 +1,4 @@
-# Builds lore.exe for writers and attaches it to the release for each version
+# Builds lorekeep.exe for writers and attaches it to the release for each version
 # tag. Writers run lore from a single .exe with nothing else installed, so the
 # binary is pure Go (CGO_ENABLED=0) for windows/amd64.
 #
@@ -32,29 +32,29 @@ jobs:
       - run: go vet ./...
       - run: go test ./...
 
-      - name: Build lore.exe
+      - name: Build lorekeep.exe
         env:
           GOOS: windows
           GOARCH: amd64
           CGO_ENABLED: '0'
-        run: go build -trimpath -ldflags="-s -w" -o lore.exe ./cmd/lore
+        run: go build -trimpath -ldflags="-s -w" -o lorekeep.exe ./cmd/lorekeep
 
       - name: Check the version stamp
         shell: pwsh
         run: |
-          $got = (./lore.exe version).Trim()
+          $got = (./lorekeep.exe version).Trim()
           Write-Output $got
-          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $got -ne "lore $env:GITHUB_REF_NAME") {
-            Write-Error "lore.exe reports '$got', want 'lore $env:GITHUB_REF_NAME'"
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $got -ne "lorekeep $env:GITHUB_REF_NAME") {
+            Write-Error "lorekeep.exe reports '$got', want 'lorekeep $env:GITHUB_REF_NAME'"
             exit 1
           }
 
       - name: Write SHA256SUMS
         shell: pwsh
         run: |
-          $hash = (Get-FileHash lore.exe -Algorithm SHA256).Hash.ToLower()
+          $hash = (Get-FileHash lorekeep.exe -Algorithm SHA256).Hash.ToLower()
           # LF, not CRLF, so `sha256sum -c` reads it on any platform.
-          [IO.File]::WriteAllText("$PWD/SHA256SUMS", "$hash  lore.exe`n")
+          [IO.File]::WriteAllText("$PWD/SHA256SUMS", "$hash  lorekeep.exe`n")
           Get-Content SHA256SUMS
 
       # A draft, so the notes can say what the release breaks before writers
@@ -65,5 +65,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: >-
-          gh release create $env:GITHUB_REF_NAME lore.exe SHA256SUMS
+          gh release create $env:GITHUB_REF_NAME lorekeep.exe SHA256SUMS
           --verify-tag --draft --generate-notes --title $env:GITHUB_REF_NAME

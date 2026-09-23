@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/gmreyer/lore-core/internal/world"
+	"github.com/gmreyer/lorekeep/internal/world"
 )
 
 // idPattern is the permitted shape of an identifier: lowercase letters,

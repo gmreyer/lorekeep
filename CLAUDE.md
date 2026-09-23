@@ -1,4 +1,4 @@
-# lore-core
+# lorekeep
 
 Tooling for a graph-based lore system for fictional worlds: a CLI, a validator, an index
 builder, a query resolver, an MCP server, and a web editor. Authored lore lives in a
@@ -26,7 +26,7 @@ in the Implementation plan section of the spec.
 ## Commands
 
 ```
-go run ./cmd/lore build <world-dir>   # validate + emit index and snapshot
+go run ./cmd/lorekeep build <world-dir>   # validate + emit index and snapshot
 go test ./...                         # all tests
 go test ./... -update                 # regenerate testdata/ goldens
 ```
@@ -57,12 +57,12 @@ These hold everywhere. A change that violates one is wrong even if it passes tes
 
 ## Where things go
 
-`lore-core` holds anything whose fix must reach existing projects. Project-specific
+`lorekeep` holds anything whose fix must reach existing projects. Project-specific
 vocabulary and content belong in the project repo. When unsure, ask rather than guess —
 putting something in the wrong place is expensive to undo later.
 
 ```
-cmd/lore/          CLI entrypoint
+cmd/lorekeep/      CLI entrypoint
 internal/schema/   schema pack parsing, core pack
 internal/index/    build pipeline, SQLite index, snapshot export
 internal/resolve/  query resolver
@@ -80,29 +80,29 @@ copied into every new world and never updated — so this section governs it, an
 Commits and Workflow rules apply there too.
 
 - **Scope.** The template holds what a new world starts with: the directory skeleton,
-  `go.mod` with the lore-core pin and the `tool` directive, the project pack, the CI
+  `go.mod` with the lorekeep pin and the `tool` directive, the project pack, the CI
   workflow, a small fixture world, `world/.gitkeep`, and a README for writers. Nothing
-  else: no CLAUDE.md, no tooling, no scripts, no code copied from lore-core. A fix
-  that must reach existing worlds belongs here in lore-core; changing the template
+  else: no CLAUDE.md, no tooling, no scripts, no code copied from lorekeep. A fix
+  that must reach existing worlds belongs here in lorekeep; changing the template
   only changes worlds created afterwards.
-- **Order.** A cross-repo change lands in lore-core first, the user merges and tags
+- **Order.** A cross-repo change lands in lorekeep first, the user merges and tags
   it, and only then does a separate template PR bump the pin. The template is never
   pinned to an untagged commit, a pseudo-version, or a `replace` directive. One PR
   never spans both repos.
-- **Bumping the pin.** `go get github.com/gmreyer/lore-core@vX.Y.Z`, `go mod tidy`,
-  then `go tool lore build .` and `go tool lore version`, both from the template
+- **Bumping the pin.** `go get github.com/gmreyer/lorekeep@vX.Y.Z`, `go mod tidy`,
+  then `go tool lorekeep build .` and `go tool lorekeep version`, both from the template
   root. Every finding gets read: a minor bump can add blocking errors, and the fixture
   must build with exit 0.
 - **Fixture world.** It shows a writer the file format and proves a fresh clone
   builds; it does not test the validator — that is `testdata/world-ok/` here. Keep it
   small and clean. `world/.gitkeep` stays even when `world/` has content.
-- **CI.** `.github/workflows/build.yml` runs `go tool lore build .` on windows-latest.
-  lore-core is private, so CI reads it with the `LORE_CORE_TOKEN` secret, a
-  fine-grained PAT with read-only Contents on lore-core; an expired token fails as a
+- **CI.** `.github/workflows/build.yml` runs `go tool lorekeep build .` on windows-latest.
+  lorekeep is private, so CI reads it with the `LORE_CORE_TOKEN` secret, a
+  fine-grained PAT with read-only Contents on lorekeep; an expired token fails as a
   module download error, not an auth error. Step 2's acceptance still holds: CI green
   on main, and a deliberately broken reference turns it red.
-- **README.** The template's README is for writers. When lore-core changes what a
-  writer sees — exit codes, `lore.exe`, day-one setup — update it in the pin-bump PR.
+- **README.** The template's README is for writers. When lorekeep changes what a
+  writer sees — exit codes, `lorekeep.exe`, day-one setup — update it in the pin-bump PR.
 - **Git.** Run git there as `git -C ..\lore-project-template …`; its branches, PRs and
   CI are its own.
 

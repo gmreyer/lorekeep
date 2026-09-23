@@ -1,7 +1,7 @@
-// Command lore is the world-repository toolchain.
+// Command lorekeep is the world-repository toolchain.
 //
 // It is a single static binary on purpose. The audience includes writers who
-// are not developers, on Windows, and "download lore.exe and run it" is close
+// are not developers, on Windows, and "download lorekeep.exe and run it" is close
 // to the whole reason the rest of this is written in Go.
 package main
 
@@ -13,8 +13,8 @@ import (
 	"path/filepath"
 	"runtime/debug"
 
-	"github.com/gmreyer/lore-core/internal/index"
-	"github.com/gmreyer/lore-core/internal/world"
+	"github.com/gmreyer/lorekeep/internal/index"
+	"github.com/gmreyer/lorekeep/internal/world"
 )
 
 func main() {
@@ -38,24 +38,24 @@ func run(args []string, stdout, stderr io.Writer) int {
 	case "build":
 		return build(args[1:], stdout, stderr)
 	case "version", "--version", "-version":
-		fmt.Fprintf(stdout, "lore %s\n", version())
+		fmt.Fprintf(stdout, "lorekeep %s\n", version())
 		return exitOK
 	case "-h", "--help", "help":
 		usage(stdout)
 		return exitOK
 	default:
-		fmt.Fprintf(stderr, "lore: unknown command %q\n\n", args[0])
+		fmt.Fprintf(stderr, "lorekeep: unknown command %q\n\n", args[0])
 		usage(stderr)
 		return exitUsage
 	}
 }
 
 func usage(w io.Writer) {
-	fmt.Fprint(w, `lore — tooling for a graph-based lore repository
+	fmt.Fprint(w, `lorekeep — tooling for a graph-based lore repository
 
 usage:
-  lore build <world-dir> [-out <dir>]
-  lore version
+  lorekeep build <world-dir> [-out <dir>]
+  lorekeep version
 
 A world directory holds a schema pack in schema/ and authored lore in world/.
 build validates the whole repository and, if it is sound, writes the SQLite
@@ -70,7 +70,7 @@ flags:
 //
 // It comes from the build info rather than from a linker flag, so no build
 // needs special flags: a release build from a tagged checkout reports the tag,
-// "go tool lore" in a world repo reports the version go.mod pins, a local go
+// "go tool lorekeep" in a world repo reports the version go.mod pins, a local go
 // build reports a pseudo-version, marked +dirty when the tree was, and go run
 // reports "(devel)".
 func version() string {
@@ -86,7 +86,7 @@ func build(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	out := fs.String("out", "", "where to write the artefacts (default: <world-dir>/build)")
 	// Flags are accepted before or after the world directory. Go's flag
-	// package stops at the first positional argument, and "lore build myworld
+	// package stops at the first positional argument, and "lorekeep build myworld
 	// -out dist" is the order a person types.
 	var positional []string
 	for rest := args; ; {
@@ -101,7 +101,7 @@ func build(args []string, stdout, stderr io.Writer) int {
 		rest = rest[1:]
 	}
 	if len(positional) != 1 {
-		fmt.Fprintln(stderr, "lore build: needs exactly one world directory")
+		fmt.Fprintln(stderr, "lorekeep build: needs exactly one world directory")
 		usage(stderr)
 		return exitUsage
 	}
@@ -114,7 +114,7 @@ func build(args []string, stdout, stderr io.Writer) int {
 
 	res, err := index.Build(repo, dest)
 	if err != nil {
-		fmt.Fprintf(stderr, "lore build: %v\n", err)
+		fmt.Fprintf(stderr, "lorekeep build: %v\n", err)
 		return exitUsage
 	}
 

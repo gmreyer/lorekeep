@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gmreyer/lore-core/internal/schema"
-	"github.com/gmreyer/lore-core/internal/world"
+	"github.com/gmreyer/lorekeep/internal/schema"
+	"github.com/gmreyer/lorekeep/internal/world"
 )
 
 // fixtureRepo is the shared world repo: schema pack and world content, read by

@@ -1,6 +1,6 @@
 # Go build and test artifacts
-/lore
-/lore.exe
+/lorekeep
+/lorekeep.exe
 *.exe
 *.test
 *.out

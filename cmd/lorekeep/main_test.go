@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gmreyer/lore-core/internal/index"
+	"github.com/gmreyer/lorekeep/internal/index"
 )
 
 var fixtureRepo = filepath.Join("..", "..", "testdata", "world-ok")
@@ -265,7 +265,7 @@ func TestUsageErrors(t *testing.T) {
 	}
 }
 
-// TestVersion: a writer holding a lore.exe has no other way to tell which
+// TestVersion: a writer holding a lorekeep.exe has no other way to tell which
 // release it is.
 func TestVersion(t *testing.T) {
 	for _, arg := range []string{"version", "--version", "-version"} {
@@ -273,8 +273,8 @@ func TestVersion(t *testing.T) {
 		if code != exitOK {
 			t.Errorf("%s: exit %d, want 0\nstderr:\n%s", arg, code, stderr)
 		}
-		if v, ok := strings.CutPrefix(strings.TrimSpace(stdout), "lore "); !ok || v == "" {
-			t.Errorf("%s: stdout = %q, want \"lore <version>\"", arg, stdout)
+		if v, ok := strings.CutPrefix(strings.TrimSpace(stdout), "lorekeep "); !ok || v == "" {
+			t.Errorf("%s: stdout = %q, want \"lorekeep <version>\"", arg, stdout)
 		}
 	}
 }

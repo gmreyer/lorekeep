@@ -14,7 +14,7 @@
 // else still gets it.
 package validate
 
-import "github.com/gmreyer/lore-core/internal/world"
+import "github.com/gmreyer/lorekeep/internal/world"
 
 // Blocking errors. These are the spec's list, and each one exits the build
 // non-zero.

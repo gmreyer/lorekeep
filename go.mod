@@ -1,4 +1,4 @@
-module github.com/gmreyer/lore-core
+module github.com/gmreyer/lorekeep
 
 go 1.25.0
 
