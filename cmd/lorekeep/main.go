@@ -42,6 +42,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return setup(args[1:], stdout, stderr)
 	case "update":
 		return update(args[1:], stdout, stderr)
+	case "git":
+		return gitCmd(args[1:], stdout, stderr)
 	case "version", "--version", "-version":
 		fmt.Fprintf(stdout, "lorekeep %s\n", version())
 		return exitOK
@@ -62,6 +64,7 @@ usage:
   lorekeep build <world-dir> [-out <dir>]
   lorekeep setup <dir> -name <name> [-example] [-git] [-ci] [-version <vX.Y.Z>]
   lorekeep update [<world-dir>] [-version <vX.Y.Z>]
+  lorekeep git [<world-dir>] [-ci]
   lorekeep version
 
 A world directory holds a schema pack in schema/ and authored lore in world/.
@@ -70,7 +73,9 @@ index and the JSON game snapshot. Nothing is written when validation fails.
 
 setup creates a new project in an empty or new directory, pinned to this
 lorekeep's version. Git is optional: -git adds .gitattributes, .gitignore and
-world/.gitkeep, and -ci adds a GitHub Actions workflow on top of them.
+world/.gitkeep, and -ci adds a GitHub Actions workflow on top of them. git
+adds the same files to an existing project; it never runs git, and never
+replaces a file of yours without asking.
 
 A project pins its lorekeep version in lorekeep-version, and build runs that
 version, downloading it on request. update moves a project to the latest
@@ -85,6 +90,9 @@ setup flags:
   -git              add the files git needs
   -ci               add a GitHub Actions workflow (needs -git)
   -version <v>      pin this release instead of the running one
+
+git flags:
+  -ci               also add the GitHub Actions workflow
 
 update flags:
   -version <v>      the release to move to (default: the latest)

@@ -43,11 +43,6 @@ func newSystem() *system {
 	return s
 }
 
-func isTerminal(f *os.File) bool {
-	info, err := f.Stat()
-	return err == nil && info.Mode()&os.ModeCharDevice != 0
-}
-
 // ask prints a yes/no question to w and reads the answer. An empty answer, or
 // no terminal to answer on, takes the default.
 func ask(w io.Writer, question string, def bool) bool {

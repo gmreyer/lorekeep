@@ -158,15 +158,29 @@ func plan(o Options) (map[string][]byte, error) {
 	}
 
 	if o.Git {
-		for src, dest := range gitFiles {
-			body, err := files.ReadFile(src)
-			if err != nil {
-				return nil, err
-			}
-			out[dest] = body
+		git, err := gitPlan(o.CI)
+		if err != nil {
+			return nil, err
+		}
+		for p, body := range git {
+			out[p] = body
 		}
 	}
-	if o.CI {
+	return out, nil
+}
+
+// gitPlan returns the git files, and the CI workflow when ci is set, keyed by
+// destination path.
+func gitPlan(ci bool) (map[string][]byte, error) {
+	out := map[string][]byte{}
+	for src, dest := range gitFiles {
+		body, err := files.ReadFile(src)
+		if err != nil {
+			return nil, err
+		}
+		out[dest] = body
+	}
+	if ci {
 		body, err := files.ReadFile(ciSource)
 		if err != nil {
 			return nil, err
