@@ -37,6 +37,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "build":
 		return build(args[1:], stdout, stderr)
+	case "setup":
+		return setup(args[1:], stdout, stderr)
 	case "version", "--version", "-version":
 		fmt.Fprintf(stdout, "lorekeep %s\n", version())
 		return exitOK
@@ -55,14 +57,26 @@ func usage(w io.Writer) {
 
 usage:
   lorekeep build <world-dir> [-out <dir>]
+  lorekeep setup <dir> -name <name> [-example] [-git] [-ci] [-version <vX.Y.Z>]
   lorekeep version
 
 A world directory holds a schema pack in schema/ and authored lore in world/.
 build validates the whole repository and, if it is sound, writes the SQLite
 index and the JSON game snapshot. Nothing is written when validation fails.
 
-flags:
-  -out <dir>   where to write the artefacts (default: <world-dir>/build)
+setup creates a new project in an empty or new directory, pinned to this
+lorekeep's version. Git is optional: -git adds .gitattributes, .gitignore and
+world/.gitkeep, and -ci adds a GitHub Actions workflow on top of them.
+
+build flags:
+  -out <dir>        where to write the artefacts (default: <world-dir>/build)
+
+setup flags:
+  -name <name>      the project name: lowercase letters, digits, underscores
+  -example          add a five-entity example world
+  -git              add the files git needs
+  -ci               add a GitHub Actions workflow (needs -git)
+  -version <v>      pin this release instead of the running one
 `)
 }
 
@@ -70,9 +84,9 @@ flags:
 //
 // It comes from the build info rather than from a linker flag, so no build
 // needs special flags: a release build from a tagged checkout reports the tag,
-// "go tool lorekeep" in a world repo reports the version go.mod pins, a local go
-// build reports a pseudo-version, marked +dirty when the tree was, and go run
-// reports "(devel)".
+// go install at a tag reports that tag, a local go build reports a
+// pseudo-version, marked +dirty when the tree was, and go run reports
+// "(devel)".
 func version() string {
 	info, ok := debug.ReadBuildInfo()
 	if !ok || info.Main.Version == "" {
@@ -81,24 +95,31 @@ func version() string {
 	return info.Main.Version
 }
 
+// parseInterleaved parses flags given before or after positional arguments and
+// returns the positional ones. Go's flag package stops at the first positional
+// argument, and "lorekeep build myworld -out dist" is the order a person types.
+func parseInterleaved(fs *flag.FlagSet, args []string) ([]string, bool) {
+	var positional []string
+	for rest := args; ; {
+		if err := fs.Parse(rest); err != nil {
+			return nil, false
+		}
+		rest = fs.Args()
+		if len(rest) == 0 {
+			return positional, true
+		}
+		positional = append(positional, rest[0])
+		rest = rest[1:]
+	}
+}
+
 func build(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("build", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	out := fs.String("out", "", "where to write the artefacts (default: <world-dir>/build)")
-	// Flags are accepted before or after the world directory. Go's flag
-	// package stops at the first positional argument, and "lorekeep build myworld
-	// -out dist" is the order a person types.
-	var positional []string
-	for rest := args; ; {
-		if err := fs.Parse(rest); err != nil {
-			return exitUsage
-		}
-		rest = fs.Args()
-		if len(rest) == 0 {
-			break
-		}
-		positional = append(positional, rest[0])
-		rest = rest[1:]
+	positional, ok := parseInterleaved(fs, args)
+	if !ok {
+		return exitUsage
 	}
 	if len(positional) != 1 {
 		fmt.Fprintln(stderr, "lorekeep build: needs exactly one world directory")

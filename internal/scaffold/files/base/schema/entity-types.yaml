@@ -1,0 +1,5 @@
+# Project entity types and groups, on top of the core types (character,
+# faction, location, event, object, concept, decision). Add them only when
+# authored lore needs them.
+types: []
+groups: []

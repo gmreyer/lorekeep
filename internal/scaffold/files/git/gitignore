@@ -1,0 +1,5 @@
+# Derived build output: lorekeep build writes the index and snapshot here.
+build/
+
+# lorekeep.exe itself, if you keep a copy in the project folder.
+*.exe

@@ -1,0 +1,3 @@
+# Spoiler acts in story order; list order is the order. visibility:
+# spoiler:<key> must name one of these.
+acts: []

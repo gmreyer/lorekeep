@@ -1,0 +1,52 @@
+# {{.Name}}
+
+A lore project for [lorekeep](https://github.com/gmreyer/lorekeep). Each entity
+— a character, a place, an event — is one Markdown file with YAML frontmatter
+under `world/`. The frontmatter is the graph; the prose below it is yours.
+
+## Building
+
+From this folder:
+
+```
+lorekeep.exe build .
+```
+
+`build` checks the whole world and, if it is sound, writes `build/index.db` and
+`build/snapshot.json`. **Nothing is written when there are errors.** It exits:
+
+- `0` — the world is valid and the build was written.
+- `1` — the world has errors; nothing was written. Read the findings.
+- `2` — lorekeep could not read the project (no `schema/` or no `world/`).
+
+Errors are things that make the graph wrong: a reference to an id that does not
+exist, a relation or entity type nobody declared. Warnings are judgement calls
+and never stop a build.
+
+## Layout
+
+```
+schema/            this world's vocabulary, on top of lorekeep's core pack
+  pack.yaml            name, version, core_version
+  entity-types.yaml, relations.yaml, eras.yaml, acts.yaml
+world/             authored lore, one entity per file, grouped by type
+lorekeep-version   the lorekeep version this project is built with
+build/             derived output, safe to delete
+```
+
+The project pack starts empty on purpose. The core pack already provides the
+structural entity types and relations; add your own only when writing needs
+them.
+
+Two version pins, two different facts: `lorekeep-version` says which lorekeep
+builds this project; `core_version` in `schema/pack.yaml` says which core
+vocabulary the lore was written against. `lorekeep build` reports when they
+drift.
+
+## Git
+
+A project works without git. If you do track it with git, keep the clone out
+of OneDrive: Windows points `Documents` at OneDrive by default, and a synced
+repository produces file locks and phantom conflicts. `.gitattributes` keeps
+line endings as LF so that every diff shows only what changed, and
+`world/.gitkeep` keeps `world/` present in a fresh clone even when it is empty.
