@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/gmreyer/lore-core/internal/world"
+	"github.com/gmreyer/lorekeep/internal/world"
 )
 
 // checkDuplicateEdges enforces that one fact is authored once.

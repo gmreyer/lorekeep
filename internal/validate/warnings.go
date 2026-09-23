@@ -5,8 +5,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/gmreyer/lore-core/internal/schema"
-	"github.com/gmreyer/lore-core/internal/world"
+	"github.com/gmreyer/lorekeep/internal/schema"
+	"github.com/gmreyer/lorekeep/internal/world"
 )
 
 func (v *validator) checkWarnings() {

@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gmreyer/lore-core/internal/schema"
-	"github.com/gmreyer/lore-core/internal/validate"
-	"github.com/gmreyer/lore-core/internal/world"
+	"github.com/gmreyer/lorekeep/internal/schema"
+	"github.com/gmreyer/lorekeep/internal/validate"
+	"github.com/gmreyer/lorekeep/internal/world"
 )
 
 // The names of the two derived artefacts and the directories they are built

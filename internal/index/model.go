@@ -15,8 +15,8 @@
 package index
 
 import (
-	"github.com/gmreyer/lore-core/internal/schema"
-	"github.com/gmreyer/lore-core/internal/world"
+	"github.com/gmreyer/lorekeep/internal/schema"
+	"github.com/gmreyer/lorekeep/internal/world"
 )
 
 // Format is the snapshot's own version. A runtime reads it before anything

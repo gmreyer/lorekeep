@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/gmreyer/lore-core/internal/schema"
-	"github.com/gmreyer/lore-core/internal/world"
+	"github.com/gmreyer/lorekeep/internal/schema"
+	"github.com/gmreyer/lorekeep/internal/world"
 )
 
 // checkEntityEdges validates every authored relation on an entity: that the

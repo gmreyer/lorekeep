@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gmreyer/lore-core/internal/schema"
-	"github.com/gmreyer/lore-core/internal/world"
+	"github.com/gmreyer/lorekeep/internal/schema"
+	"github.com/gmreyer/lorekeep/internal/world"
 )
 
 // TestFixtureIsClean is the baseline every other case rests on. If the fixture

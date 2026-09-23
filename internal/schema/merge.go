@@ -99,7 +99,7 @@ func checkCoreVersion(l *errList, core, project *Pack) []Notice {
 	case have.compare(pin) < 0:
 		l.add(CodeCoreTooOld, packFile, "core_version",
 			"pack was authored against core %s but only core %s is present; "+
-				"update the lore-core requirement in go.mod", pin, have)
+				"update the lorekeep requirement in go.mod", pin, have)
 	case have.compare(pin) > 0:
 		return []Notice{{
 			Code: CodeCoreNewer,

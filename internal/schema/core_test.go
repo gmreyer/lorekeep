@@ -142,12 +142,12 @@ func TestCoreDeclaresNamedVocabulary(t *testing.T) {
 	}
 	for _, name := range []string{TypeCharacter, TypeEvent, TypeDecision} {
 		if !c.HasType(name) {
-			t.Errorf("core does not declare entity type %q, which lore-core names in code", name)
+			t.Errorf("core does not declare entity type %q, which lorekeep names in code", name)
 		}
 	}
 	for _, role := range []Role{RoleParticipation, RoleContainment, RoleMembership, RoleOrdering} {
 		if !c.HasRole(role) {
-			t.Errorf("core does not declare role %q, which lore-core names in code", role)
+			t.Errorf("core does not declare role %q, which lorekeep names in code", role)
 		}
 		if len(c.RelationsWithRole(role)) == 0 {
 			t.Errorf("no core relation carries role %q", role)

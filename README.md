@@ -1,4 +1,4 @@
-# lore-core
+# lorekeep
 
 Tooling for a graph-based lore system for fictional worlds: a CLI, a validator, an
 index builder, a query resolver, an MCP server, and a web editor.
@@ -26,7 +26,7 @@ Phase 1, Step 1 complete. What exists today:
   with YAML frontmatter, a parser that locates every field by line, and a loader
 - `internal/validate` — the blocking-error list and the warnings
 - `internal/index` — the SQLite index and the JSON game snapshot
-- `cmd/lore` — `lore build <world-dir>`
+- `cmd/lorekeep` — `lorekeep build <world-dir>`
 
 Not built yet: the query resolver, the MCP server, and the editor. Belief
 inheritance, worldline resolution, health metrics, and the advisory AI lane are
@@ -36,13 +36,13 @@ and checked for referential integrity now, so the file format is final.
 Released: `v0.1.0`. Step 2, the world-repo template, is
 [lore-project-template](https://github.com/gmreyer/lore-project-template).
 
-## Working on lore-core
+## Working on lorekeep
 
 ```
 go test ./...
 go test ./... -update    # regenerate the goldens under internal/index/testdata/
 go build ./...
-go run ./cmd/lore build testdata/world-ok
+go run ./cmd/lorekeep build testdata/world-ok
 ```
 
 `testdata/world-ok/` is the one fixture world in this repo — a schema pack beside
@@ -73,44 +73,20 @@ declares the CLI as a tool (Go 1.24 or newer):
 ```
 go 1.25.0
 
-require github.com/gmreyer/lore-core v0.1.0
+require github.com/gmreyer/lorekeep v0.2.1
 
-tool github.com/gmreyer/lore-core/cmd/lore
+tool github.com/gmreyer/lorekeep/cmd/lorekeep
 ```
 
-The `tool` directive means nobody installs `lore` separately. From the world repo's
+The `tool` directive means nobody installs `lorekeep` separately. From the world repo's
 root, the pinned version builds and runs on demand:
 
 ```
-go tool lore build .
+go tool lorekeep build .
 ```
 
-Upgrading lore-core is `go get github.com/gmreyer/lore-core@v0.X.Y` in the world repo,
+Upgrading lorekeep is `go get github.com/gmreyer/lorekeep@v0.X.Y` in the world repo,
 then a commit of the changed `go.mod` and `go.sum`.
-
-**This repo is private, so set `GOPRIVATE` once, on every machine, before your first
-`go get`:**
-
-```bash
-go env -w "GOPRIVATE=github.com/gmreyer/*"
-```
-
-Without it the Go toolchain tries the public module proxy, gets a 404, and reports
-something that looks nothing like a permissions problem. This is the single thing
-most likely to cost someone an afternoon on day one.
-
-Go fetches the module over HTTPS with git's password prompts switched off, so an SSH
-key does not help. What works on Windows is the GitHub CLI signed in over HTTPS,
-answering yes to "authenticate Git with your GitHub credentials":
-
-```bash
-gh auth login
-```
-
-In CI there is no signed-in user, so the template's workflow rewrites
-`https://github.com/gmreyer/` to carry a fine-grained token with read access to this
-repo. When that token expires the build fails as a module download error, not as an
-authentication error — check the token first.
 
 A world repo also carries a `core_version` pin in its schema pack, recording which
 core vocabulary the prose was authored against. That is not the same fact as the
@@ -140,20 +116,21 @@ constrains the pipeline more than it constrains the code.
 - No Make and no shell scripts in the build path. Anything a writer runs must work
   from a single `.exe` with nothing else installed.
 
-## Getting lore.exe without Go
+## Getting lorekeep.exe without Go
 
-Writers who do not have Go installed run a prebuilt `lore.exe` instead of
-`go tool lore`. Each version tag, from v0.2.0 on, has a release on this repo's
-[Releases page](https://github.com/gmreyer/lore-core/releases) with `lore.exe`
-(windows/amd64, no cgo) and `SHA256SUMS` attached. This repo is private, so
-downloading needs a GitHub account with read access to it.
+Writers who do not have Go installed run a prebuilt `lorekeep.exe` instead of
+`go tool lorekeep`. Each version tag, from v0.2.1 on, has a release on this repo's
+[Releases page](https://github.com/gmreyer/lorekeep/releases) with `lorekeep.exe`
+(windows/amd64, no cgo) and `SHA256SUMS` attached.
+v0.2.0 was released as `github.com/gmreyer/lore-core` and ships `lore.exe`; the
+first release under the `lorekeep` name is v0.2.1.
 
 Download the release matching the version in your world repo's `go.mod`, check it,
 and confirm the version:
 
 ```powershell
-(Get-FileHash lore.exe -Algorithm SHA256).Hash.ToLower()   # compare with SHA256SUMS
-.\lore.exe version
+(Get-FileHash lorekeep.exe -Algorithm SHA256).Hash.ToLower()   # compare with SHA256SUMS
+.\lorekeep.exe version
 ```
 
 The binary is not code-signed, so on first run Windows SmartScreen may say it
@@ -167,7 +144,7 @@ A person writes what the release breaks into its notes and publishes it.
 ## Layout
 
 ```
-cmd/lore/          CLI entrypoint
+cmd/lorekeep/      CLI entrypoint
 internal/schema/   schema pack parsing, core pack
 internal/world/    the authored file format: types, frontmatter parser, loader
 internal/validate/ blocking errors and warnings
@@ -181,10 +158,10 @@ testdata/world-ok/ the fixture world, shared by every consumer
 ## Building a world
 
 ```
-lore build <world-dir> [-out <dir>]
+lorekeep build <world-dir> [-out <dir>]
 ```
 
-Inside a world repo that is `go tool lore build .`.
+Inside a world repo that is `go tool lorekeep build .`.
 
 A world directory holds a schema pack in `schema/` and authored lore in `world/`.
 `build` validates the whole repository and, if it is sound, writes `index.db` and
