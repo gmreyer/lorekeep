@@ -2,8 +2,9 @@
 
 Tooling for a graph-based lore system for fictional worlds: a CLI, a validator, an index
 builder, a query resolver, an MCP server, and a web editor. Authored lore lives in a
-separate project repo as Markdown + YAML frontmatter; this repo is installed there as a
-versioned Go module.
+separate project folder as Markdown + YAML frontmatter, created by `lorekeep setup`;
+the project pins a lorekeep release in `lorekeep-version`, and lorekeep runs that
+release for it. Writers use `lorekeep.exe` only, never Go.
 
 The design lives outside the repo, in two Claude Docs read through the Claude Docs
 connector:
@@ -26,9 +27,10 @@ in the Implementation plan section of the spec.
 ## Commands
 
 ```
-go run ./cmd/lorekeep build <world-dir>   # validate + emit index and snapshot
-go test ./...                         # all tests
-go test ./... -update                 # regenerate testdata/ goldens
+go run ./cmd/lorekeep build <world-dir>                      # validate + emit index and snapshot
+go run ./cmd/lorekeep setup <dir> -name <n> -version v0.3.0  # a scratch project
+go test ./...                                                # all tests
+go test ./... -update                                        # regenerate testdata/ goldens
 ```
 
 ## Invariants
@@ -58,52 +60,56 @@ These hold everywhere. A change that violates one is wrong even if it passes tes
 ## Where things go
 
 `lorekeep` holds anything whose fix must reach existing projects. Project-specific
-vocabulary and content belong in the project repo. When unsure, ask rather than guess —
+vocabulary and content belong in the project. When unsure, ask rather than guess —
 putting something in the wrong place is expensive to undo later.
 
 ```
-cmd/lorekeep/      CLI entrypoint
-internal/schema/   schema pack parsing, core pack
-internal/index/    build pipeline, SQLite index, snapshot export
-internal/resolve/  query resolver
-internal/mcp/      MCP server
-internal/editor/   web editor (templ + htmx)
+cmd/lorekeep/        CLI entrypoint, menu, version dispatch
+internal/schema/     schema pack parsing, core pack
+internal/world/      authored file format, parser, loader
+internal/validate/   blocking errors and warnings
+internal/index/      build pipeline, SQLite index, snapshot export
+internal/scaffold/   the embedded project template
+internal/project/    lorekeep-version, recent projects
+internal/versions/   release cache, downloads, update check
+internal/resolve/    query resolver
+internal/mcp/        MCP server
+internal/editor/     web editor (templ + htmx)
 ```
 
-## The template repo
+## Projects, versions and the template
 
-`lore-project-template` (github.com/gmreyer/lore-project-template, cloned beside this
-repo as `..\lore-project-template`) is the git template every world repo is created
-from. Work on it from a session started here: `claude --add-dir ..\lore-project-template`,
-or `/add-dir` inside a session. It has no CLAUDE.md on purpose — whatever it holds is
-copied into every new world and never updated — so this section governs it, and the
-Commits and Workflow rules apply there too.
+A writer's whole toolchain is `lorekeep.exe`: the menu, `setup`, `build`, `update`,
+`git`. These rules hold for all of it.
 
-- **Scope.** The template holds what a new world starts with: the directory skeleton,
-  `go.mod` with the lorekeep pin and the `tool` directive, the project pack, the CI
-  workflow, a small fixture world, `world/.gitkeep`, and a README for writers. Nothing
-  else: no CLAUDE.md, no tooling, no scripts, no code copied from lorekeep. A fix
-  that must reach existing worlds belongs here in lorekeep; changing the template
-  only changes worlds created afterwards.
-- **Order.** A cross-repo change lands in lorekeep first, the user merges and tags
-  it, and only then does a separate template PR bump the pin. The template is never
-  pinned to an untagged commit, a pseudo-version, or a `replace` directive. One PR
-  never spans both repos.
-- **Bumping the pin.** `go get github.com/gmreyer/lorekeep@vX.Y.Z`, `go mod tidy`,
-  then `go tool lorekeep build .` and `go tool lorekeep version`, both from the template
-  root. Every finding gets read: a minor bump can add blocking errors, and the fixture
-  must build with exit 0.
-- **Fixture world.** It shows a writer the file format and proves a fresh clone
-  builds; it does not test the validator — that is `testdata/world-ok/` here. Keep it
-  small and clean. `world/.gitkeep` stays even when `world/` has content.
-- **CI.** `.github/workflows/build.yml` runs `go tool lorekeep build .` on windows-latest.
-  It still requires a `LORE_CORE_TOKEN` secret from when lorekeep was private; lorekeep
-  is public now, so neither the token nor `GOPRIVATE` is needed. Step 2's acceptance still
-  holds: CI green on main, and a deliberately broken reference turns it red.
-- **README.** The template's README is for writers. When lorekeep changes what a
-  writer sees — exit codes, `lorekeep.exe`, day-one setup — update it in the pin-bump PR.
-- **Git.** Run git there as `git -C ..\lore-project-template …`; its branches, PRs and
-  CI are its own.
+- **Git is optional.** lorekeep must work for a purely local project and never runs
+  git. The layout stays git-friendly regardless: plain text, one entity per file,
+  derived output only in `build/`. Git files and the CI workflow are opt-in, at
+  setup or later through `lorekeep git`. The spec's editor commits and
+  `propose_change` assume a repo; how they work locally is open for Steps 5–6.
+- **The user never edits config by hand.** Anything user-specific comes through a
+  prompt or a flag, and lorekeep writes the file.
+- **The pin format is frozen.** `lorekeep-version` is one line, `vX.Y.Z`. Old
+  binaries read it to dispatch to new ones, so nothing is ever added to it.
+- **Commands on a project go through `runPinned`,** so they run the release the
+  project pins. `LOREKEEP_NO_DISPATCH` marks a child lorekeep started from the cache;
+  it never dispatches again.
+- **Nothing silent.** Downloads and updates are asked for, at a real console only
+  (`isTerminal`, not a file mode: `NUL` is a character device). Without a console
+  lorekeep never prompts, never downloads, and records no answer nobody gave. A
+  project's pin moves only after the new release builds it with exit 0.
+- **The template is `internal/scaffold/files/`.** `base/` is always written;
+  `example/`, `git/` and `ci/` on request. Dotfiles are stored under inert names and
+  mapped on write, so they never act on this repo. Changing the template changes
+  only projects created afterwards; a fix existing projects need belongs in the
+  tool. The scaffolded README is for writers and is never updated after setup, so it
+  says nothing that a later release could make false.
+- **The example world** shows a writer the format; it does not test the validator,
+  which is `testdata/world-ok/`. Every setup variant must build with zero findings.
+- **The CI workflow** downloads the pinned release and checks it against
+  `SHA256SUMS`. When its script changes, run it against a real release before
+  merging; unit tests do not execute PowerShell.
+- **`lore-project-template`** is retired. Nothing new goes there.
 
 ## Workflow
 
