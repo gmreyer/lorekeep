@@ -32,6 +32,10 @@ const (
 
 func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
+		// A double-click opens a console: that is a writer, so show the menu.
+		if sys.interactive {
+			return menu(stdout, stderr)
+		}
 		usage(stderr)
 		return exitUsage
 	}
@@ -61,6 +65,7 @@ func usage(w io.Writer) {
 	fmt.Fprint(w, `lorekeep — tooling for a graph-based lore repository
 
 usage:
+  lorekeep                 (at a console: the menu)
   lorekeep build <world-dir> [-out <dir>]
   lorekeep setup <dir> -name <name> [-example] [-git] [-ci] [-version <vX.Y.Z>]
   lorekeep update [<world-dir>] [-version <vX.Y.Z>]

@@ -23,6 +23,7 @@ type system struct {
 	interactive bool // stdin is a terminal a person can answer prompts on
 	versions    *versions.Manager
 	statePath   string
+	recentPath  string
 	now         func() time.Time
 	executable  func() (string, error)
 }
@@ -40,6 +41,7 @@ func newSystem() *system {
 	}
 	s.versions, _ = versions.New()
 	s.statePath, _ = versions.StatePath()
+	s.recentPath, _ = project.RecentPath()
 	return s
 }
 
