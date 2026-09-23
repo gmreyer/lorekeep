@@ -25,9 +25,9 @@ const (
 // packMeta is pack.yaml: the pack's own identity and, for a project pack, the
 // core version it was authored against.
 //
-// That pin is not the same fact as the lorekeep version in a world's go.mod.
-// go.mod says which binary you run; core_version says which core vocabulary
-// the prose was written against. They should agree, and the loader is what
+// That pin is not the same fact as the project's lorekeep-version file, which
+// says which binary you run; core_version says which core vocabulary the prose
+// was written against. They should agree, and the loader is what
 // notices when someone bumps one without reviewing the other.
 type packMeta struct {
 	Name        string `yaml:"name"`
