@@ -1,0 +1,3 @@
+# Project relations, on top of the core structural relations. The vocabulary
+# is closed: an edge whose type is declared nowhere fails the build.
+relations: []

@@ -1,0 +1,44 @@
+# Validates the world and builds the index on every push and pull request.
+# A dangling reference, an unknown relation or entity type, or any other
+# blocking error makes lorekeep build exit non-zero and fails this job.
+#
+# It runs the lorekeep version pinned in lorekeep-version, downloaded from
+# lorekeep's public releases and checked against the release's SHA256SUMS.
+name: build
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # Windows because that is where every writer works.
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Download lorekeep
+        run: |
+          $version = (Get-Content lorekeep-version -Raw).Trim()
+          $base = "https://github.com/gmreyer/lorekeep/releases/download/$version"
+          Invoke-WebRequest "$base/lorekeep.exe" -OutFile lorekeep.exe
+          Invoke-WebRequest "$base/SHA256SUMS" -OutFile SHA256SUMS
+          # @() because a one-line file reads as a string, not an array.
+          $want = (@(Get-Content SHA256SUMS) -match 'lorekeep\.exe$' -split '\s+')[0]
+          $got = (Get-FileHash lorekeep.exe -Algorithm SHA256).Hash.ToLower()
+          if ($got -ne $want) {
+            Write-Output "::error::lorekeep.exe $version does not match SHA256SUMS"
+            exit 1
+          }
+          ./lorekeep.exe version
+
+      - name: lorekeep build
+        run: ./lorekeep.exe build .
