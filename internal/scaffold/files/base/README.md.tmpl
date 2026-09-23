@@ -1,12 +1,12 @@
 # {{.Name}}
 
 A lore project for [lorekeep](https://github.com/gmreyer/lorekeep). Each entity
-— a character, a place, an event — is one Markdown file with YAML frontmatter
-under `world/`. The frontmatter is the graph; the prose below it is yours.
+(a character, a place, an event) is one Markdown file under `world/`. The YAML
+frontmatter at the top of each file is the graph; the prose below it is yours.
 
 ## Building
 
-From this folder:
+Run `lorekeep.exe` and choose **Build**, or from this folder:
 
 ```
 lorekeep.exe build .
@@ -15,13 +15,14 @@ lorekeep.exe build .
 `build` checks the whole world and, if it is sound, writes `build/index.db` and
 `build/snapshot.json`. **Nothing is written when there are errors.** It exits:
 
-- `0` — the world is valid and the build was written.
-- `1` — the world has errors; nothing was written. Read the findings.
-- `2` — lorekeep could not read the project (no `schema/` or no `world/`).
+- `0`: the world is valid and the build was written.
+- `1`: the world has errors; nothing was written. Read the findings.
+- `2`: lorekeep could not read the project, or could not get the lorekeep
+  version it pins.
 
-Errors are things that make the graph wrong: a reference to an id that does not
-exist, a relation or entity type nobody declared. Warnings are judgement calls
-and never stop a build.
+Errors make the graph wrong: a reference to an id that does not exist, or a
+relation or entity type nobody declared. Warnings are judgement calls and never
+stop a build.
 
 ## Layout
 
@@ -30,23 +31,33 @@ schema/            this world's vocabulary, on top of lorekeep's core pack
   pack.yaml            name, version, core_version
   entity-types.yaml, relations.yaml, eras.yaml, acts.yaml
 world/             authored lore, one entity per file, grouped by type
-lorekeep-version   the lorekeep version this project is built with
+lorekeep-version   the lorekeep version that builds this project
 build/             derived output, safe to delete
 ```
 
 The project pack starts empty on purpose. The core pack already provides the
-structural entity types and relations; add your own only when writing needs
+structural entity types and relations. Add your own only when your writing needs
 them.
 
-Two version pins, two different facts: `lorekeep-version` says which lorekeep
-builds this project; `core_version` in `schema/pack.yaml` says which core
-vocabulary the lore was written against. `lorekeep build` reports when they
-drift.
+## lorekeep versions
+
+`lorekeep-version` names the lorekeep release that builds this project. Whichever
+`lorekeep.exe` you start, it runs that release, downloading it the first time if
+you agree. When a newer release comes out, lorekeep shows its notes and asks
+before moving the project. It moves the project only if the new release builds
+it without errors. Don't edit `lorekeep-version` by hand; choose **Update lorekeep
+for this project** in the menu, or run `lorekeep.exe update .`.
+
+`core_version` in `schema/pack.yaml` is a different fact: the core vocabulary
+the lore was written against. `lorekeep build` reports when the two drift.
 
 ## Git
 
-A project works without git. If you do track it with git, keep the clone out
-of OneDrive: Windows points `Documents` at OneDrive by default, and a synced
-repository produces file locks and phantom conflicts. `.gitattributes` keeps
-line endings as LF so that every diff shows only what changed, and
-`world/.gitkeep` keeps `world/` present in a fresh clone even when it is empty.
+This project works without git. To track it with git, choose **Prepare for
+git** in the menu or run `lorekeep.exe git .`; add `-ci` for a GitHub workflow
+that builds the world on every push. Keep the folder out of OneDrive: Windows
+points `Documents` at OneDrive by default, and a synced repository produces file
+locks and phantom conflicts.
+
+See [lorekeep's README](https://github.com/gmreyer/lorekeep#readme) for the full
+list of commands.
