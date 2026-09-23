@@ -99,6 +99,7 @@ func testSystem(t *testing.T, interactive bool, answers string) *releases {
 			HTTP:      srv.Client(),
 		},
 		statePath:  filepath.Join(t.TempDir(), "state.json"),
+		recentPath: filepath.Join(t.TempDir(), "projects.json"),
 		now:        func() time.Time { return time.Date(2026, 9, 23, 12, 0, 0, 0, time.UTC) },
 		executable: os.Executable,
 	}
