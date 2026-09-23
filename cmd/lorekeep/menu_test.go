@@ -159,11 +159,11 @@ func TestMenuOpensCurrentDirectory(t *testing.T) {
 
 func TestSuggestName(t *testing.T) {
 	for in, want := range map[string]string{
-		`C:\work\Harrow Gate`: "harrow_gate",
-		"harrowgate":          "harrowgate",
-		"Lore--World 2":       "lore_world_2",
-		"Ärger":               "rger",
-		"---":                 "world",
+		"work/Harrow Gate": "harrow_gate",
+		"harrowgate":       "harrowgate",
+		"Lore--World 2":    "lore_world_2",
+		"Ärger":            "rger",
+		"---":              "world",
 	} {
 		if got := suggestName(filepath.FromSlash(in)); got != want {
 			t.Errorf("suggestName(%q) = %q, want %q", in, got, want)
