@@ -158,6 +158,7 @@ func TestSetupRefuses(t *testing.T) {
 		{"an empty name", Options{Version: testVersion}, "project name"},
 		{"a devel version", Options{Name: "w", Version: "(devel)"}, "version"},
 		{"a pre-release version", Options{Name: "w", Version: "v0.3.0-rc.1"}, "version"},
+		{"a version before pins", Options{Name: "w", Version: "v0.2.1"}, "first version"},
 		{"ci without git", Options{Name: "w", Version: testVersion, CI: true}, "git"},
 	}
 	for _, tt := range tests {

@@ -12,6 +12,7 @@ import (
 // The step's acceptance, end to end: a project set up by lorekeep builds with
 // exit 0, whether it is local or ready for git, empty or with the example.
 func TestSetupThenBuild(t *testing.T) {
+	poseAs(t, "v0.3.0")
 	for _, flags := range [][]string{
 		nil,
 		{"-example"},
@@ -74,4 +75,12 @@ func TestSetupUsageErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+// poseAs makes this test binary report v as its version.
+func poseAs(t *testing.T, v string) {
+	t.Helper()
+	old := version
+	version = func() string { return v }
+	t.Cleanup(func() { version = old })
 }

@@ -18,6 +18,7 @@ import (
 )
 
 func main() {
+	sys = newSystem()
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
@@ -39,6 +40,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return build(args[1:], stdout, stderr)
 	case "setup":
 		return setup(args[1:], stdout, stderr)
+	case "update":
+		return update(args[1:], stdout, stderr)
 	case "version", "--version", "-version":
 		fmt.Fprintf(stdout, "lorekeep %s\n", version())
 		return exitOK
@@ -58,6 +61,7 @@ func usage(w io.Writer) {
 usage:
   lorekeep build <world-dir> [-out <dir>]
   lorekeep setup <dir> -name <name> [-example] [-git] [-ci] [-version <vX.Y.Z>]
+  lorekeep update [<world-dir>] [-version <vX.Y.Z>]
   lorekeep version
 
 A world directory holds a schema pack in schema/ and authored lore in world/.
@@ -68,6 +72,10 @@ setup creates a new project in an empty or new directory, pinned to this
 lorekeep's version. Git is optional: -git adds .gitattributes, .gitignore and
 world/.gitkeep, and -ci adds a GitHub Actions workflow on top of them.
 
+A project pins its lorekeep version in lorekeep-version, and build runs that
+version, downloading it on request. update moves a project to the latest
+release, or to -version, and re-pins only if the project builds cleanly with it.
+
 build flags:
   -out <dir>        where to write the artefacts (default: <world-dir>/build)
 
@@ -77,6 +85,9 @@ setup flags:
   -git              add the files git needs
   -ci               add a GitHub Actions workflow (needs -git)
   -version <v>      pin this release instead of the running one
+
+update flags:
+  -version <v>      the release to move to (default: the latest)
 `)
 }
 
@@ -86,8 +97,10 @@ setup flags:
 // needs special flags: a release build from a tagged checkout reports the tag,
 // go install at a tag reports that tag, a local go build reports a
 // pseudo-version, marked +dirty when the tree was, and go run reports
-// "(devel)".
-func version() string {
+// "(devel)". It is a variable so tests can pose as a release.
+var version = buildVersion
+
+func buildVersion() string {
 	info, ok := debug.ReadBuildInfo()
 	if !ok || info.Main.Version == "" {
 		return "(unknown)"
@@ -128,6 +141,10 @@ func build(args []string, stdout, stderr io.Writer) int {
 	}
 
 	repo := positional[0]
+	if code, done := runPinned(repo, append([]string{"build"}, args...), stdout, stderr); done {
+		return code
+	}
+
 	dest := *out
 	if dest == "" {
 		dest = filepath.Join(repo, index.BuildDir)
