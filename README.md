@@ -88,30 +88,6 @@ go tool lorekeep build .
 Upgrading lorekeep is `go get github.com/gmreyer/lorekeep@v0.X.Y` in the world repo,
 then a commit of the changed `go.mod` and `go.sum`.
 
-**This repo is private, so set `GOPRIVATE` once, on every machine, before your first
-`go get`:**
-
-```bash
-go env -w "GOPRIVATE=github.com/gmreyer/*"
-```
-
-Without it the Go toolchain tries the public module proxy, gets a 404, and reports
-something that looks nothing like a permissions problem. This is the single thing
-most likely to cost someone an afternoon on day one.
-
-Go fetches the module over HTTPS with git's password prompts switched off, so an SSH
-key does not help. What works on Windows is the GitHub CLI signed in over HTTPS,
-answering yes to "authenticate Git with your GitHub credentials":
-
-```bash
-gh auth login
-```
-
-In CI there is no signed-in user, so the template's workflow rewrites
-`https://github.com/gmreyer/` to carry a fine-grained token with read access to this
-repo. When that token expires the build fails as a module download error, not as an
-authentication error — check the token first.
-
 A world repo also carries a `core_version` pin in its schema pack, recording which
 core vocabulary the prose was authored against. That is not the same fact as the
 `go.mod` requirement — `go.mod` says which binary you run, `core_version` says what
@@ -145,8 +121,7 @@ constrains the pipeline more than it constrains the code.
 Writers who do not have Go installed run a prebuilt `lorekeep.exe` instead of
 `go tool lorekeep`. Each version tag, from v0.2.1 on, has a release on this repo's
 [Releases page](https://github.com/gmreyer/lorekeep/releases) with `lorekeep.exe`
-(windows/amd64, no cgo) and `SHA256SUMS` attached. This repo is private, so
-downloading needs a GitHub account with read access to it.
+(windows/amd64, no cgo) and `SHA256SUMS` attached.
 v0.2.0 was released as `github.com/gmreyer/lore-core` and ships `lore.exe`; the
 first release under the `lorekeep` name is v0.2.1.
 

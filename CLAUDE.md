@@ -97,10 +97,9 @@ Commits and Workflow rules apply there too.
   builds; it does not test the validator — that is `testdata/world-ok/` here. Keep it
   small and clean. `world/.gitkeep` stays even when `world/` has content.
 - **CI.** `.github/workflows/build.yml` runs `go tool lorekeep build .` on windows-latest.
-  lorekeep is private, so CI reads it with the `LORE_CORE_TOKEN` secret, a
-  fine-grained PAT with read-only Contents on lorekeep; an expired token fails as a
-  module download error, not an auth error. Step 2's acceptance still holds: CI green
-  on main, and a deliberately broken reference turns it red.
+  It still requires a `LORE_CORE_TOKEN` secret from when lorekeep was private; lorekeep
+  is public now, so neither the token nor `GOPRIVATE` is needed. Step 2's acceptance still
+  holds: CI green on main, and a deliberately broken reference turns it red.
 - **README.** The template's README is for writers. When lorekeep changes what a
   writer sees — exit codes, `lorekeep.exe`, day-one setup — update it in the pin-bump PR.
 - **Git.** Run git there as `git -C ..\lore-project-template …`; its branches, PRs and
