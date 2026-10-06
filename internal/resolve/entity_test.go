@@ -1,8 +1,10 @@
 package resolve
 
 import (
+	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -203,5 +205,64 @@ func TestUnknownEntity(t *testing.T) {
 	}
 	if _, err := r.Entities(Context{}); !errors.Is(err, ErrNoContext) {
 		t.Errorf("Entities with zero context: err = %v, want ErrNoContext", err)
+	}
+}
+
+// Empty lists serialise as [], never null, so a consumer reads one shape.
+func TestEmptyListsAreEmpty(t *testing.T) {
+	r := New(tinyIndex())
+	e := mustEntity(t, r, Omniscient(nil), "char_a")
+	data, err := json.Marshal(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "null") {
+		t.Errorf("entity JSON has null: %s", data)
+	}
+	bs, err := r.Beliefs(Omniscient(nil), "char_a")
+	if err != nil || bs == nil {
+		t.Errorf("Beliefs = %v, %v; want an empty, non-nil list", bs, err)
+	}
+}
+
+// A returned entity is the caller's to change: nothing in it reaches back
+// into the shared index.
+func TestReturnedEntityDoesNotAlias(t *testing.T) {
+	r := fixture(t)
+	dec := mustEntity(t, r, Omniscient(nil), "dec_vale")
+	dec.Outcomes[0] = "changed"
+	kaelen := mustEntity(t, r, Omniscient(nil), "char_kaelen")
+	for _, ed := range kaelen.Edges {
+		if ed.Priority != nil {
+			*ed.Priority = 99
+		}
+	}
+	if got := mustEntity(t, r, Omniscient(nil), "dec_vale").Outcomes[0]; got == "changed" {
+		t.Error("Outcomes aliases the index")
+	}
+	for _, ed := range mustEntity(t, r, Omniscient(nil), "char_kaelen").Edges {
+		if ed.Priority != nil && *ed.Priority == 99 {
+			t.Error("Edge.Priority aliases the index")
+		}
+	}
+}
+
+// Two edges with the same relation and target still sort one way: numbered
+// priority first, then by note.
+func TestSameTripleEdgesOrdered(t *testing.T) {
+	two := 2
+	idx := tinyIndex()
+	idx.Entities[1].Edges = []index.Edge{
+		{Relation: "member_of", Target: "fac_b", Note: "b"},
+		{Relation: "member_of", Target: "fac_b", Note: "a"},
+		{Relation: "member_of", Target: "fac_b", Priority: &two, Note: "c"},
+	}
+	e := mustEntity(t, New(idx), Omniscient(nil), "char_a")
+	var notes []string
+	for _, ed := range e.Edges {
+		notes = append(notes, ed.Note)
+	}
+	if !slices.Equal(notes, []string{"c", "a", "b"}) {
+		t.Errorf("order = %v, want [c a b]", notes)
 	}
 }

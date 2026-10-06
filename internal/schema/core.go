@@ -46,6 +46,7 @@ func Core() (*Pack, error) {
 // fails loudly if the core pack ever stops declaring one of these.
 const (
 	TypeCharacter = "character"
+	TypeFaction   = "faction"
 	TypeEvent     = "event"
 	TypeDecision  = "decision"
 

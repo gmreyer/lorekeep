@@ -17,7 +17,8 @@ func tinyIndex() *index.Index {
 		Vocabulary: index.Vocabulary{
 			Groups: []index.GroupInfo{{Name: "agent", Types: []string{"character", "faction"}}},
 			Relations: []index.Relation{
-				{Name: "member_of", Inverse: "has_member", Role: "membership"},
+				{Name: "member_of", Domain: []string{"character", "faction"}, Range: []string{"faction"},
+					Inverse: "has_member", Role: "membership"},
 			},
 		},
 		Entities: []index.Entity{
@@ -122,5 +123,54 @@ func TestKnowerMustBePresent(t *testing.T) {
 	r := New(tinyIndex())
 	if err := r.check(Scoped(nil, "char_nobody")); !errors.Is(err, ErrUnknownEntity) {
 		t.Errorf("unknown knower: check = %v, want ErrUnknownEntity", err)
+	}
+}
+
+// A worldline may only assign decisions present under the context: a draft
+// decision in a canon read, or a decision that exists only in another branch,
+// cannot open the entities conditioned on it.
+func TestWorldlineDecisionMustBePresent(t *testing.T) {
+	idx := tinyIndex()
+	idx.Entities = append(idx.Entities,
+		index.Entity{ID: "dec_nested", Type: "decision", Status: "canon", Visibility: "internal",
+			Outcomes: []string{"yes", "no"}, ValidIn: []index.Condition{{Decision: "dec_vale", Outcome: "held"}}},
+		index.Entity{ID: "dec_draft", Type: "decision", Status: "draft", Visibility: "internal",
+			Outcomes: []string{"yes", "no"}},
+	)
+	r := New(idx)
+	if err := r.check(Omniscient(Worldline{"dec_nested": "yes"})); !errors.Is(err, ErrUnknownOutcome) {
+		t.Errorf("nested decision without its branch: %v, want ErrUnknownOutcome", err)
+	}
+	if err := r.check(Omniscient(Worldline{"dec_vale": "held", "dec_nested": "yes"})); err != nil {
+		t.Errorf("nested decision inside its branch: %v", err)
+	}
+	if err := r.check(Omniscient(Worldline{"dec_draft": "yes"})); !errors.Is(err, ErrUnknownOutcome) {
+		t.Errorf("draft decision in a canon read: %v, want ErrUnknownOutcome", err)
+	}
+	drafts := WithStatuses(world.StatusDraft, world.StatusCanon)
+	if err := r.check(Omniscient(Worldline{"dec_draft": "yes"}, drafts)); err != nil {
+		t.Errorf("draft decision in a draft read: %v", err)
+	}
+}
+
+func TestStatusesValidated(t *testing.T) {
+	r := New(tinyIndex())
+	if err := r.check(Omniscient(nil, WithStatuses())); !errors.Is(err, ErrUnknownStatus) {
+		t.Errorf("no statuses: %v, want ErrUnknownStatus", err)
+	}
+	if err := r.check(Omniscient(nil, WithStatuses("cannon"))); !errors.Is(err, ErrUnknownStatus) {
+		t.Errorf("unknown status: %v, want ErrUnknownStatus", err)
+	}
+}
+
+// The same bad context gives the same error every time.
+func TestCheckErrorDeterministic(t *testing.T) {
+	r := New(tinyIndex())
+	ctx := Omniscient(Worldline{"dec_a": "x", "dec_b": "x", "dec_c": "x", "dec_d": "x"})
+	first := r.check(ctx).Error()
+	for range 20 {
+		if got := r.check(ctx).Error(); got != first {
+			t.Fatalf("error changed between runs: %q vs %q", first, got)
+		}
 	}
 }

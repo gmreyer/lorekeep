@@ -564,6 +564,23 @@ beliefs:
       valid_in: [{ decision: dec_siege_outcome, outcome: fell }] }`, ""),
 		},
 		{
+			// A faction inherits from nothing, so a faction in two factions
+			// that disagree has nothing to choose between.
+			name: "a faction is never checked",
+			overlay: func() map[string]string {
+				o := inheritedConflict("", "")
+				o["world/factions/cinder-hand.md"] = entityFile(`id: fac_cinder_hand
+type: faction
+name: The Cinder Hand
+status: canon
+visibility: public
+relations:
+  - { type: member_of, target: fac_ashen_court }
+  - { type: member_of, target: fac_grey_wardens }`)
+				return o
+			}(),
+		},
+		{
 			// The same check, through a project relation that carries the
 			// membership role. A rule that looked for member_of by name would
 			// go quiet here.

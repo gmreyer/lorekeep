@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gmreyer/lorekeep/internal/index"
+	"github.com/gmreyer/lorekeep/internal/schema"
 )
 
 // Source says where a resolved belief came from.
@@ -48,14 +49,14 @@ func (r *Resolver) Beliefs(ctx Context, agent string) ([]Belief, error) {
 	if err := r.check(ctx); err != nil {
 		return nil, err
 	}
+	if !ctx.omniscient && ctx.knower != agent {
+		return nil, fmt.Errorf("%w: %q cannot read the beliefs of %q", ErrOutOfScope, ctx.knower, agent)
+	}
 	a, err := r.agent(ctx, agent)
 	if err != nil {
 		return nil, err
 	}
-	if !ctx.omniscient && ctx.knower != agent {
-		return nil, fmt.Errorf("%w: %q cannot read the beliefs of %q", ErrOutOfScope, ctx.knower, agent)
-	}
-	var out []Belief
+	out := []Belief{}
 	for _, s := range r.presentStatements(ctx) {
 		if b, ok := r.resolveBelief(ctx, a, s); ok {
 			out = append(out, b)
@@ -72,7 +73,7 @@ func (r *Resolver) statementsAbout(ctx Context, id string) []Belief {
 	if !ctx.omniscient {
 		knower, _ = r.entity(ctx, ctx.knower)
 	}
-	var out []Belief
+	out := []Belief{}
 	for _, s := range r.presentStatements(ctx) {
 		if s.Subject != id && s.Object != id {
 			continue
@@ -153,13 +154,21 @@ func (r *Resolver) ownBelief(ctx Context, a *index.Entity, s *index.Statement) (
 
 // inheritedBelief is rule 2: the own belief on s of the first faction a is a
 // member of, walking memberships by priority. Only memberships that hold
-// under ctx, to factions present under it, count. One level only: a faction's
-// own memberships are not followed.
+// under ctx, to factions present under it, count.
+//
+// One level only. A faction inherits from nothing, even when it is itself a
+// member of another faction: it reads its own beliefs, then common knowledge.
+//
+// The faction's confidence travels with the belief; where the faction got it
+// from does not, since Via already names the member's source.
 func (r *Resolver) inheritedBelief(ctx Context, a *index.Entity, s *index.Statement) (Belief, bool) {
+	if a.Type == schema.TypeFaction {
+		return Belief{}, false
+	}
 	for _, ed := range r.memberships(ctx, a) {
 		faction, _ := r.entity(ctx, ed.Target)
 		if b, ok := r.ownBelief(ctx, faction, s); ok {
-			b.Source, b.Via = Inherited, faction.ID
+			b.Source, b.Via, b.AcquiredFrom = Inherited, faction.ID, ""
 			return b, true
 		}
 	}
@@ -178,15 +187,7 @@ func (r *Resolver) memberships(ctx Context, a *index.Entity) []*index.Edge {
 		}
 	}
 	slices.SortStableFunc(out, func(x, y *index.Edge) int {
-		switch {
-		case x.Priority == nil && y.Priority == nil:
-			return 0
-		case x.Priority == nil:
-			return 1
-		case y.Priority == nil:
-			return -1
-		}
-		return cmp.Compare(*x.Priority, *y.Priority)
+		return comparePriority(x.Priority, y.Priority)
 	})
 	return out
 }

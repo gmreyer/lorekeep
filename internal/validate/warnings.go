@@ -42,7 +42,8 @@ func (v *validator) checkWarnings() {
 // builds, and importing resolve here would close that cycle.
 //
 // It binds to the membership role, never to a relation name, for the same
-// reason the lifespan check binds to participation.
+// reason the lifespan check binds to participation. A faction inherits from
+// nothing in the resolver, so it is never checked here either.
 func (v *validator) warnInheritedConflicts() {
 	membership := map[string]bool{}
 	for _, r := range v.pack.RelationsWithRole(schema.RoleMembership) {
@@ -51,7 +52,7 @@ func (v *validator) warnInheritedConflicts() {
 	agentTypes, _ := v.pack.ExpandGroup("agent")
 	agent := map[string]bool{}
 	for _, t := range agentTypes {
-		agent[t] = true
+		agent[t] = t != schema.TypeFaction
 	}
 	if len(membership) == 0 || len(agent) == 0 {
 		return

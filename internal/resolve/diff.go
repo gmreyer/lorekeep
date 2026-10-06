@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"strconv"
 )
 
 // Fact kinds.
@@ -12,6 +13,7 @@ const (
 	FactEdge      = "edge"
 	FactStatement = "statement"
 	FactBelief    = "belief"
+	FactAssertion = "assertion"
 )
 
 // Fact is one authored fact present under a context. Fields a kind does not
@@ -19,11 +21,14 @@ const (
 //
 //   - entity: Subject is the entity ID.
 //   - edge: Subject, Relation, Object are the source, the authored relation
-//     and the target.
+//     and the target; Value is the priority, if any, since a priority that
+//     differs between branches changes what a member inherits.
 //   - statement: Subject is the statement ID, Value its truth.
 //   - belief: Subject is the agent, Object the statement, Value the held
 //     value. Only an agent's own belief is a fact; inherited and common
 //     beliefs follow from other facts.
+//   - assertion: Subject is the agent, Relation the audience (empty when
+//     open), Object the statement, Value the asserted value.
 type Fact struct {
 	Kind     string `json:"kind"`
 	Subject  string `json:"subject"`
@@ -68,7 +73,11 @@ func (r *Resolver) facts(ctx Context) map[Fact]bool {
 		for j := range e.Edges {
 			ed := &e.Edges[j]
 			if r.edgeHolds(ctx, e.ID, ed) {
-				out[Fact{Kind: FactEdge, Subject: e.ID, Relation: ed.Relation, Object: ed.Target}] = true
+				val := ""
+				if ed.Priority != nil {
+					val = strconv.Itoa(*ed.Priority)
+				}
+				out[Fact{Kind: FactEdge, Subject: e.ID, Relation: ed.Relation, Object: ed.Target, Value: val}] = true
 			}
 		}
 	}
@@ -86,13 +95,19 @@ func (r *Resolver) facts(ctx Context) map[Fact]bool {
 				out[Fact{Kind: FactBelief, Subject: a.ID, Object: s.ID, Value: b.Held}] = true
 			}
 		}
+		for _, as := range a.Assertions {
+			if r.assertionHolds(ctx, as) {
+				out[Fact{Kind: FactAssertion, Subject: a.ID, Relation: as.Audience, Object: as.Statement,
+					Value: strconv.FormatBool(as.Value)}] = true
+			}
+		}
 	}
 	return out
 }
 
 // minus returns the facts in x and not in y, sorted.
 func minus(x, y map[Fact]bool) []Fact {
-	var out []Fact
+	out := []Fact{}
 	for f := range x {
 		if !y[f] {
 			out = append(out, f)

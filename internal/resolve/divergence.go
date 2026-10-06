@@ -88,7 +88,10 @@ func (r *Resolver) Divergence(ctx Context, agents ...string) ([]Divergence, erro
 	})
 	// An agent named twice, or a lie told twice to the same audience, is
 	// one divergence.
-	return slices.Compact(out), nil
+	if out = slices.Compact(out); out == nil {
+		out = []Divergence{}
+	}
+	return out, nil
 }
 
 // divergences finds a's divergences on the present statements.
@@ -114,18 +117,32 @@ func (r *Resolver) divergences(ctx Context, a *index.Entity, statements []*index
 		}
 		for _, as := range a.Assertions {
 			said := strconv.FormatBool(as.Value)
-			if as.Statement != s.ID || !holds(as.ValidIn, ctx.worldline) || said == b.Held {
+			if as.Statement != s.ID || !r.assertionHolds(ctx, as) || said == b.Held {
 				continue
 			}
-			d := Divergence{Agent: a.ID, Statement: s.ID, Kind: Liar, Held: b.Held, Expected: said}
-			// The audience is named only if it is present: an absent one would leak.
-			if _, present := r.entity(ctx, as.Audience); present {
-				d.Against = as.Audience
-			}
-			out = append(out, d)
+			out = append(out, Divergence{Agent: a.ID, Statement: s.ID, Kind: Liar,
+				Held: b.Held, Expected: said, Against: as.Audience})
 		}
 	}
 	return out
+}
+
+// assertionHolds reports whether an assertion is made under ctx: its valid_in
+// holds, its statement is present, and its audience, if any, is present. A
+// lie told to someone absent from this worldline is not told in it.
+func (r *Resolver) assertionHolds(ctx Context, as index.Assertion) bool {
+	if !holds(as.ValidIn, ctx.worldline) {
+		return false
+	}
+	if _, ok := r.statement(ctx, as.Statement); !ok {
+		return false
+	}
+	if as.Audience != "" {
+		if _, ok := r.entity(ctx, as.Audience); !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // resolved reports whether a truth value is true or false, not unresolved.
