@@ -63,7 +63,7 @@ func (r *Resolver) Entities(ctx Context) ([]Summary, error) {
 	if err := r.check(ctx); err != nil {
 		return nil, err
 	}
-	var out []Summary
+	out := []Summary{}
 	for i := range r.idx.Entities {
 		if e, ok := r.entity(ctx, r.idx.Entities[i].ID); ok {
 			out = append(out, summarise(e))
@@ -85,8 +85,8 @@ func (r *Resolver) Entity(ctx Context, id string) (Entity, error) {
 	out := Entity{
 		Summary:    summarise(e),
 		Visibility: e.Visibility,
-		Interval:   e.Interval,
-		Outcomes:   e.Outcomes,
+		Interval:   cloneInterval(e.Interval),
+		Outcomes:   slices.Clone(e.Outcomes),
 		Body:       e.Body,
 		File:       e.File,
 		Edges:      r.edges(ctx, e),
@@ -98,7 +98,7 @@ func (r *Resolver) Entity(ctx Context, id string) (Entity, error) {
 // edges returns every edge of e present under ctx: its authored edges, and the
 // derived or inbound view of every edge pointing at it.
 func (r *Resolver) edges(ctx Context, e *index.Entity) []Edge {
-	var out []Edge
+	out := []Edge{}
 	for i := range e.Edges {
 		ed := &e.Edges[i]
 		if !r.edgeHolds(ctx, e.ID, ed) {
@@ -109,7 +109,7 @@ func (r *Resolver) edges(ctx Context, e *index.Entity) []Edge {
 			Target:    ed.Target,
 			Direction: Out,
 			Role:      r.relations[ed.Relation].Role,
-			Priority:  ed.Priority,
+			Priority:  clonePtr(ed.Priority),
 			Note:      ed.Note,
 		})
 	}
@@ -130,7 +130,7 @@ func (r *Resolver) edges(ctx Context, e *index.Entity) []Edge {
 			Target:    in.source,
 			Direction: dir,
 			Role:      rel.Role,
-			Priority:  in.edge.Priority,
+			Priority:  clonePtr(in.edge.Priority),
 			Note:      in.edge.Note,
 		})
 	}
@@ -138,15 +138,51 @@ func (r *Resolver) edges(ctx Context, e *index.Entity) []Edge {
 	return out
 }
 
-// compareEdges orders edges by relation, then target, then direction.
+// compareEdges orders edges by relation, target and direction, then — for
+// the same fact authored more than once — numbered priority before none, and
+// note.
 func compareEdges(a, b Edge) int {
 	return cmp.Or(
 		cmp.Compare(a.Relation, b.Relation),
 		cmp.Compare(a.Target, b.Target),
 		cmp.Compare(a.Direction, b.Direction),
+		comparePriority(a.Priority, b.Priority),
+		cmp.Compare(a.Note, b.Note),
 	)
 }
 
+// comparePriority orders priorities ascending, with an unnumbered one last.
+func comparePriority(a, b *int) int {
+	switch {
+	case a == nil && b == nil:
+		return 0
+	case a == nil:
+		return 1
+	case b == nil:
+		return -1
+	}
+	return cmp.Compare(*a, *b)
+}
+
+// summarise copies what a Summary shares with the index, so a caller that
+// changes a returned value cannot reach the resolver's state.
 func summarise(e *index.Entity) Summary {
-	return Summary{ID: e.ID, Type: e.Type, Name: e.Name, Aliases: e.Aliases, Status: e.Status}
+	return Summary{ID: e.ID, Type: e.Type, Name: e.Name, Aliases: slices.Clone(e.Aliases), Status: e.Status}
+}
+
+func cloneInterval(iv *index.Interval) *index.Interval {
+	if iv == nil {
+		return nil
+	}
+	out := *iv
+	out.Earliest, out.Latest = clonePtr(iv.Earliest), clonePtr(iv.Latest)
+	return &out
+}
+
+func clonePtr(p *int) *int {
+	if p == nil {
+		return nil
+	}
+	v := *p
+	return &v
 }

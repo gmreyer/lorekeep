@@ -226,3 +226,48 @@ func TestNothingNamesAnAbsentEntity(t *testing.T) {
 		t.Errorf("held: acquired_from lost: %+v", b)
 	}
 }
+
+// A faction is a group others are members of; it reads its own beliefs and
+// common knowledge, and inherits from nothing, even when it is itself a member
+// of another faction.
+func TestFactionKnowerWithMembershipDoesNotInherit(t *testing.T) {
+	idx := tinyIndex()
+	idx.Statements = []index.Statement{{ID: "stmt_x", Subject: "char_a", Relation: "member_of",
+		Object: "fac_b", Truth: "true", Status: "canon", Visibility: "internal"}}
+	idx.Entities = append(idx.Entities, index.Entity{ID: "fac_c", Type: "faction", Status: "canon",
+		Visibility: "internal", Beliefs: []index.Belief{{Statement: "stmt_x", Value: false}}})
+	idx.Entities[2].Edges = []index.Edge{{Relation: "member_of", Target: "fac_c"}}
+	idx.Entities[1].Edges = []index.Edge{{Relation: "member_of", Target: "fac_c"}}
+	r := New(idx)
+	if b, ok := beliefOn(t, r, Scoped(nil, "fac_b"), "fac_b", "stmt_x"); ok {
+		t.Errorf("a faction inherited from its parent faction: %+v", b)
+	}
+	b, ok := beliefOn(t, r, Scoped(nil, "char_a"), "char_a", "stmt_x")
+	wantBelief(t, b, ok, "false", Inherited, "fac_c")
+}
+
+// An inherited belief names the faction it came from; where the faction got
+// it from is the faction's business, not the member's.
+func TestInheritedBeliefDropsAcquiredFrom(t *testing.T) {
+	idx := tinyIndex()
+	idx.Statements = []index.Statement{{ID: "stmt_x", Subject: "char_a", Relation: "member_of",
+		Object: "fac_b", Truth: "true", Status: "canon", Visibility: "internal"}}
+	idx.Entities[2].Beliefs = []index.Belief{{Statement: "stmt_x", Value: true, Confidence: "high", AcquiredFrom: "char_a"}}
+	idx.Entities[1].Edges = []index.Edge{{Relation: "member_of", Target: "fac_b"}}
+	b, ok := beliefOn(t, New(idx), Scoped(nil, "char_a"), "char_a", "stmt_x")
+	wantBelief(t, b, ok, "true", Inherited, "fac_b")
+	if b.AcquiredFrom != "" {
+		t.Errorf("inherited belief carries the faction's source %q", b.AcquiredFrom)
+	}
+	if b.Confidence != "high" {
+		t.Errorf("confidence = %q, want the faction's", b.Confidence)
+	}
+}
+
+// Another agent's mind is out of scope whether or not that agent exists.
+func TestBeliefsScopeBeforePresence(t *testing.T) {
+	r := fixture(t)
+	if _, err := r.Beliefs(Scoped(nil, "char_kaelen"), "char_nobody"); !errors.Is(err, ErrOutOfScope) {
+		t.Errorf("err = %v, want ErrOutOfScope", err)
+	}
+}

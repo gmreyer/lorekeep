@@ -140,7 +140,7 @@ func TestCoreDeclaresNamedVocabulary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{TypeCharacter, TypeEvent, TypeDecision} {
+	for _, name := range []string{TypeCharacter, TypeFaction, TypeEvent, TypeDecision} {
 		if !c.HasType(name) {
 			t.Errorf("core does not declare entity type %q, which lorekeep names in code", name)
 		}

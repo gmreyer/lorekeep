@@ -114,7 +114,7 @@ func (r *Resolver) relationFilter(names []string) (map[string]bool, error) {
 			continue
 		}
 		forward := ""
-		for _, rel := range r.relations {
+		for _, rel := range r.idx.Vocabulary.Relations {
 			if name != "" && rel.Inverse == name {
 				forward = rel.Name
 				break

@@ -69,12 +69,12 @@ func TestLiarNamesPresentAudience(t *testing.T) {
 		}
 	}
 	got := divergences(t, New(&idx), nil, "char_vesk")
+	// A lie to an audience absent under the context is not told in it.
 	want := []Divergence{
-		{Agent: "char_vesk", Statement: "stmt_vesk_sworn", Kind: Liar, Held: "true", Expected: "false", Against: ""},
 		{Agent: "char_vesk", Statement: "stmt_vesk_sworn", Kind: Liar, Held: "true", Expected: "false", Against: "char_kaelen"},
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("baseline: absent audience must not be named (-want +got):\n%s", diff)
+		t.Errorf("baseline: a lie to an absent audience shown (-want +got):\n%s", diff)
 	}
 }
 

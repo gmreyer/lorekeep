@@ -2,6 +2,7 @@ package resolve
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/gmreyer/lorekeep/internal/index"
@@ -71,15 +72,20 @@ func New(idx *index.Index) *Resolver {
 	return r
 }
 
-// check validates ctx against the world: every worldline pair names a declared
-// decision and one of its outcomes, and a scoped knower is an agent present
-// under the context. Every public read starts here.
+// check validates ctx against the world: every worldline pair names a decision
+// present under the context and one of its outcomes, and a scoped knower is an
+// agent present under the context. Every public read starts here.
+//
+// A decision must be present, not merely declared: a draft decision in a
+// canon read, or one that exists only in another branch, must not open the
+// entities conditioned on it.
 func (r *Resolver) check(ctx Context) error {
 	if err := ctx.valid(); err != nil {
 		return err
 	}
-	for dec, out := range ctx.worldline {
-		e, ok := r.entities[dec]
+	for _, dec := range slices.Sorted(maps.Keys(ctx.worldline)) {
+		out := ctx.worldline[dec]
+		e, ok := r.entity(ctx, dec)
 		if !ok || e.Type != schema.TypeDecision {
 			return fmt.Errorf("%w: %q is not a decision", ErrUnknownOutcome, dec)
 		}

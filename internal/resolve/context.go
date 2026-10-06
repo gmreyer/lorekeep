@@ -2,7 +2,9 @@ package resolve
 
 import (
 	"errors"
+	"fmt"
 	"maps"
+	"slices"
 
 	"github.com/gmreyer/lorekeep/internal/world"
 )
@@ -29,6 +31,8 @@ var (
 	ErrOutOfScope = errors.New("out of scope for this context")
 	// ErrUnknownRelation is a relation name the vocabulary does not declare.
 	ErrUnknownRelation = errors.New("unknown relation")
+	// ErrUnknownStatus is an empty or unknown status set from WithStatuses.
+	ErrUnknownStatus = errors.New("unknown status")
 )
 
 // Worldline assigns outcomes to decisions: decision ID → outcome. A decision
@@ -115,6 +119,13 @@ func (c Context) valid() error {
 		return ErrNoKnower
 	case c.opts.visibility != world.VisibilityInternal:
 		return ErrVisibilityUnsupported
+	case len(c.opts.statuses) == 0:
+		return fmt.Errorf("%w: WithStatuses needs at least one status", ErrUnknownStatus)
+	}
+	for _, s := range slices.Sorted(maps.Keys(c.opts.statuses)) {
+		if !world.Status(s).Valid() {
+			return fmt.Errorf("%w: %q", ErrUnknownStatus, s)
+		}
 	}
 	return nil
 }
