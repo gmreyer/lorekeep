@@ -1,12 +1,14 @@
 package index
 
 import (
+	"database/sql"
 	"flag"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/gmreyer/lorekeep/internal/validate"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -261,5 +263,68 @@ func writeFile(t *testing.T, root, rel, body string) {
 	p := filepath.Join(root, filepath.FromSlash(rel))
 	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// common rides through both serialisers: the snapshot for the runtime, the
+// SQLite column for queries.
+func TestStatementCommonCarried(t *testing.T) {
+	res, out := buildFixture(t)
+	if len(res.Index.Statements) == 0 || !res.Index.Statements[0].Common {
+		t.Fatalf("the fixture's common statement lost Common: %+v", res.Index.Statements)
+	}
+
+	db, err := sql.Open("sqlite", filepath.Join(out, IndexFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var common int
+	if err := db.QueryRow(`SELECT common FROM statements WHERE id = ?`,
+		res.Index.Statements[0].ID).Scan(&common); err != nil {
+		t.Fatal(err)
+	}
+	if common != 1 {
+		t.Errorf("statements.common = %d, want 1", common)
+	}
+}
+
+// TestLoadWritesNothing: Load is the read-only half of Build, for consumers
+// that hold the world in memory and rebuild on change.
+func TestLoadWritesNothing(t *testing.T) {
+	repo := copyTree(t, fixtureRepo)
+	res, err := Load(repo)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if res.Findings.HasErrors() {
+		t.Fatalf("the fixture world should load clean:\n%v", res.Findings)
+	}
+	if res.Index == nil {
+		t.Fatal("Index is nil for a sound world")
+	}
+	if len(res.Written) != 0 {
+		t.Errorf("Written = %v, want nothing", res.Written)
+	}
+	if _, err := os.Stat(filepath.Join(repo, BuildDir)); !os.IsNotExist(err) {
+		t.Errorf("Load created %s/", BuildDir)
+	}
+
+	broken := "---\nid: char_orrin\ntype: character\nname: Orrin\nstatus: canon\nvisibility: public\n" +
+		"relations:\n  - { type: originates_from, target: loc_nowhere }\n---\n"
+	writeFile(t, repo, "world/characters/orrin.md", broken)
+	res, err = Load(repo)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if res.Index != nil {
+		t.Error("Index is set for a world with a dangling id")
+	}
+	var dangling bool
+	for _, f := range res.Findings {
+		dangling = dangling || f.Code == validate.CodeDangling
+	}
+	if !dangling {
+		t.Errorf("no dangling_reference finding:\n%v", res.Findings)
 	}
 }

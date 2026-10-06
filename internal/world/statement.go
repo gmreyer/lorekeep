@@ -29,7 +29,12 @@ type Statement struct {
 	// Truth is the value in canon, which may differ per worldline — so a
 	// character can be right in one branch and wrong in another without the
 	// character being duplicated.
-	Truth      Truth       `yaml:"truth"`
+	Truth Truth `yaml:"truth"`
+	// Common marks the truth as common knowledge: an agent with no belief of
+	// its own, and none inherited from a faction, knows the canon truth rather
+	// than being ignorant of it. It is an explicit authoring act, like
+	// reification itself, and independent of visibility, which gates readers.
+	Common     bool        `yaml:"common,omitempty"`
 	Status     Status      `yaml:"status"`
 	Visibility Visibility  `yaml:"visibility"`
 	ValidIn    []Condition `yaml:"valid_in,omitempty"`

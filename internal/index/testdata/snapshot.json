@@ -101,6 +101,10 @@
       {
         "name": "ordering",
         "description": "Position on the timeline. Authoritative where it disagrees with a date."
+      },
+      {
+        "name": "soft_link",
+        "description": "An untyped link: related, in a way the author cannot yet name. Its share of all edges is the vocabulary-gap metric."
       }
     ],
     "relations": [
@@ -270,6 +274,7 @@
         "range": [
           "any"
         ],
+        "role": "soft_link",
         "description": "Untyped soft link: these are related and the author cannot yet say how. Watch its share of total edges — a rising share means the vocabulary is missing a type."
       },
       {
@@ -619,6 +624,7 @@
       "relation": "sworn_to",
       "object": "fac_ashen_court",
       "truth": "false",
+      "common": true,
       "status": "canon",
       "visibility": "internal",
       "file": "statements/orrin-oath.md",

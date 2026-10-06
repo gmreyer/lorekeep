@@ -46,7 +46,7 @@ func TestCoreRoleSet(t *testing.T) {
 	}
 	want := []Role{
 		"causation", "containment", "identity", "membership",
-		"ordering", "ownership", "participation", "placement",
+		"ordering", "ownership", "participation", "placement", "soft_link",
 	}
 	var got []Role
 	for _, r := range c.Roles {
@@ -145,12 +145,39 @@ func TestCoreDeclaresNamedVocabulary(t *testing.T) {
 			t.Errorf("core does not declare entity type %q, which lorekeep names in code", name)
 		}
 	}
-	for _, role := range []Role{RoleParticipation, RoleContainment, RoleMembership, RoleOrdering} {
+	for _, role := range []Role{RoleParticipation, RoleContainment, RoleMembership, RoleOrdering, RoleSoftLink} {
 		if !c.HasRole(role) {
 			t.Errorf("core does not declare role %q, which lorekeep names in code", role)
 		}
 		if len(c.RelationsWithRole(role)) == 0 {
 			t.Errorf("no core relation carries role %q", role)
 		}
+	}
+}
+
+// mentions is the untyped safety valve, and its share of all edges is the
+// vocabulary-gap metric. That metric counts by role, so it survives a project
+// that adds its own soft link, and it needs mentions to carry one.
+func TestMentionsIsSoftLink(t *testing.T) {
+	c, err := Core()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.HasRole(RoleSoftLink) {
+		t.Fatalf("core does not declare role %q", RoleSoftLink)
+	}
+	var names []string
+	for _, r := range c.RelationsWithRole(RoleSoftLink) {
+		names = append(names, r.Name)
+	}
+	if !slices.Equal(names, []string{"mentions"}) {
+		t.Errorf("relations with role %q = %v, want [mentions]", RoleSoftLink, names)
+	}
+	v, err := CoreVersion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v != "0.2.0" {
+		t.Errorf("CoreVersion() = %q, want %q", v, "0.2.0")
 	}
 }

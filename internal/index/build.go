@@ -34,13 +34,14 @@ type Result struct {
 	Written []string
 }
 
-// Build validates a world repository and, if it is sound, writes the index and
-// the snapshot.
+// Load validates a world repository and, if it is sound, compiles it in
+// memory. It writes nothing: Written stays empty, and Index stays nil when
+// validation fails.
 //
-// Nothing is written when validation fails. A half-built index of a world with
-// a dangling reference is worse than no index: it would answer questions, and
-// the answers would be wrong.
-func Build(repo, out string) (*Result, error) {
+// This is what a long-lived consumer — the resolver behind the MCP server and
+// the editor — reads from. A full load at the spec's scale takes seconds, so
+// consumers rebuild on change rather than caching.
+func Load(repo string) (*Result, error) {
 	pack, err := schema.LoadProject(filepath.Join(repo, SchemaDir))
 	if err != nil {
 		return nil, fmt.Errorf("schema pack: %w", err)
@@ -62,6 +63,21 @@ func Build(repo, out string) (*Result, error) {
 	}
 
 	res.Index = Compile(w, pack)
+	return res, nil
+}
+
+// Build validates a world repository and, if it is sound, writes the index and
+// the snapshot.
+//
+// Nothing is written when validation fails. A half-built index of a world with
+// a dangling reference is worse than no index: it would answer questions, and
+// the answers would be wrong.
+func Build(repo, out string) (*Result, error) {
+	res, err := Load(repo)
+	if err != nil || res.Index == nil {
+		return res, err
+	}
+
 	if err := os.MkdirAll(out, 0o755); err != nil {
 		return res, fmt.Errorf("creating the build directory: %w", err)
 	}

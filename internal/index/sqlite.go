@@ -105,6 +105,7 @@ CREATE TABLE statements (
   relation        TEXT NOT NULL,
   object          TEXT NOT NULL,
   truth           TEXT NOT NULL,
+  common          INTEGER NOT NULL DEFAULT 0,
   status          TEXT NOT NULL,
   visibility      TEXT NOT NULL,
   visibility_kind TEXT NOT NULL,
@@ -339,9 +340,9 @@ func (w *sqlWriter) statements(idx *Index) {
 	for _, s := range idx.Statements {
 		kind, act := splitVisibility(s.Visibility)
 		w.exec(`INSERT INTO statements
-			(id, name, subject, relation, object, truth, status, visibility, visibility_kind, visibility_act, file, body)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			s.ID, s.Name, s.Subject, s.Relation, s.Object, s.Truth, s.Status,
+			(id, name, subject, relation, object, truth, common, status, visibility, visibility_kind, visibility_act, file, body)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			s.ID, s.Name, s.Subject, s.Relation, s.Object, s.Truth, boolToInt(s.Common), s.Status,
 			s.Visibility, kind, nullableString(act), s.File, s.Body)
 		w.conditions(ownerStatement, s.ID, s.ValidIn)
 
