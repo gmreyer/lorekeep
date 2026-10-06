@@ -1,0 +1,11 @@
+relations:
+  - name: heir_of
+    domain: [character]
+    range: [faction]
+    inverse: has_heir
+    description: Is the rightful heir of.
+  - name: sworn_to
+    domain: [character]
+    range: [faction]
+    inverse: has_sworn
+    description: Bound by oath of service to.
