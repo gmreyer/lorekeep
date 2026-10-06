@@ -1,0 +1,152 @@
+package resolve
+
+import (
+	"cmp"
+	"fmt"
+	"slices"
+
+	"github.com/gmreyer/lorekeep/internal/index"
+)
+
+// Summary is the short form of an entity: enough to list and link it.
+type Summary struct {
+	ID      string
+	Type    string
+	Name    string
+	Aliases []string
+	Status  string
+}
+
+// Direction says how an edge reached the entity it is shown on.
+type Direction string
+
+const (
+	// Out is an edge as authored, on its source.
+	Out Direction = "out"
+	// Derived is an inverse or symmetric edge, computed on the target of the
+	// authored one. Its Relation is the inverse name, or for a symmetric
+	// relation the relation itself.
+	Derived Direction = "derived"
+	// In is a one-way relation seen from its target, under its own name.
+	In Direction = "in"
+)
+
+// Edge is one edge as the entity it is shown on sees it. Target is the other
+// end, whichever direction the edge runs.
+type Edge struct {
+	Relation  string
+	Target    string
+	Direction Direction
+	Role      string
+	Priority  *int
+	Note      string
+}
+
+// Entity is one entity as the context sees it: only edges and statements that
+// exist under it, and statements as the knower believes them.
+type Entity struct {
+	Summary
+	Visibility string
+	Interval   *index.Interval
+	Outcomes   []string
+	Body       string
+	File       string
+	Edges      []Edge
+	// Statements are the present statements whose subject or object is this
+	// entity: canon truth for an omniscient context, the knower's belief for a
+	// scoped one, with what the knower is ignorant of left out.
+	Statements []Belief
+}
+
+// Entities lists every entity present under ctx, sorted by ID.
+func (r *Resolver) Entities(ctx Context) ([]Summary, error) {
+	if err := r.check(ctx); err != nil {
+		return nil, err
+	}
+	var out []Summary
+	for i := range r.idx.Entities {
+		if e, ok := r.entity(ctx, r.idx.Entities[i].ID); ok {
+			out = append(out, summarise(e))
+		}
+	}
+	slices.SortFunc(out, func(a, b Summary) int { return cmp.Compare(a.ID, b.ID) })
+	return out, nil
+}
+
+// Entity reads one entity under ctx.
+func (r *Resolver) Entity(ctx Context, id string) (Entity, error) {
+	if err := r.check(ctx); err != nil {
+		return Entity{}, err
+	}
+	e, ok := r.entity(ctx, id)
+	if !ok {
+		return Entity{}, fmt.Errorf("%w: %q", ErrUnknownEntity, id)
+	}
+	out := Entity{
+		Summary:    summarise(e),
+		Visibility: e.Visibility,
+		Interval:   e.Interval,
+		Outcomes:   e.Outcomes,
+		Body:       e.Body,
+		File:       e.File,
+		Edges:      r.edges(ctx, e),
+		Statements: r.statementsAbout(ctx, id),
+	}
+	return out, nil
+}
+
+// edges returns every edge of e present under ctx: its authored edges, and the
+// derived or inbound view of every edge pointing at it.
+func (r *Resolver) edges(ctx Context, e *index.Entity) []Edge {
+	var out []Edge
+	for i := range e.Edges {
+		ed := &e.Edges[i]
+		if !r.edgeHolds(ctx, e.ID, ed) {
+			continue
+		}
+		out = append(out, Edge{
+			Relation:  ed.Relation,
+			Target:    ed.Target,
+			Direction: Out,
+			Role:      r.relations[ed.Relation].Role,
+			Priority:  ed.Priority,
+			Note:      ed.Note,
+		})
+	}
+	for _, in := range r.incoming[e.ID] {
+		if !r.edgeHolds(ctx, in.source, in.edge) {
+			continue
+		}
+		rel := r.relations[in.edge.Relation]
+		name, dir := rel.Name, In
+		switch {
+		case rel.Symmetric:
+			dir = Derived
+		case rel.Inverse != "":
+			name, dir = rel.Inverse, Derived
+		}
+		out = append(out, Edge{
+			Relation:  name,
+			Target:    in.source,
+			Direction: dir,
+			Role:      rel.Role,
+			Priority:  in.edge.Priority,
+			Note:      in.edge.Note,
+		})
+	}
+	slices.SortFunc(out, compareEdges)
+	return out
+}
+
+// compareEdges orders edges by relation, then target, then direction.
+func compareEdges(a, b Edge) int {
+	return cmp.Or(
+		cmp.Compare(a.Relation, b.Relation),
+		cmp.Compare(a.Target, b.Target),
+		cmp.Compare(a.Direction, b.Direction),
+	)
+}
+
+func summarise(e *index.Entity) Summary {
+	return Summary{ID: e.ID, Type: e.Type, Name: e.Name, Aliases: e.Aliases, Status: e.Status}
+}
