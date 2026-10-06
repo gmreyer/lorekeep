@@ -53,6 +53,7 @@ const (
 	RoleContainment   Role = "containment"
 	RoleMembership    Role = "membership"
 	RoleOrdering      Role = "ordering"
+	RoleSoftLink      Role = "soft_link"
 )
 
 // CoreVersion is the version of the embedded core pack. It is read from the

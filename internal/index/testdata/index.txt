@@ -37,6 +37,7 @@ ordering	Position on the timeline. Authoritative where it disagrees with a date.
 ownership	Holding, or having made, something.
 participation	An agent taking part in an event.
 placement	A non-spatial entity anchored to a location. Not transitive: it composes with containment rather than extending it.
+soft_link	An untyped link: related, in a way the author cannot yet name. Its share of all edges is the vocabulary-gap metric.
 
 ## relations (name, inverse, symmetric, role, description)
 allied_with	""	1	""	Holds a standing alliance with.
@@ -49,7 +50,7 @@ hostile_to	""	1	""	Is in open enmity with.
 located_in	contains	0	containment	Sits inside, spatially. Transitive.
 married_to	""	1	identity	Is married to.
 member_of	has_member	0	membership	Belongs to an organised group.
-mentions	""	0	""	Untyped soft link: these are related and the author cannot yet say how. Watch its share of total edges — a rising share means the vocabulary is missing a type.
+mentions	""	0	soft_link	Untyped soft link: these are related and the author cannot yet say how. Watch its share of total edges — a rising share means the vocabulary is missing a type.
 occurred_at	was_site_of	0	placement	Happened at this place. Anchors an event to the map without claiming anything is inside the event.
 originates_from	origin_of	0	placement	Hails from.
 owns	owned_by	0	ownership	Holds or possesses.
