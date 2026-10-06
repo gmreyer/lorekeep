@@ -10,11 +10,11 @@ import (
 
 // Summary is the short form of an entity: enough to list and link it.
 type Summary struct {
-	ID      string
-	Type    string
-	Name    string
-	Aliases []string
-	Status  string
+	ID      string   `json:"id"`
+	Type    string   `json:"type"`
+	Name    string   `json:"name"`
+	Aliases []string `json:"aliases,omitempty"`
+	Status  string   `json:"status"`
 }
 
 // Direction says how an edge reached the entity it is shown on.
@@ -34,28 +34,28 @@ const (
 // Edge is one edge as the entity it is shown on sees it. Target is the other
 // end, whichever direction the edge runs.
 type Edge struct {
-	Relation  string
-	Target    string
-	Direction Direction
-	Role      string
-	Priority  *int
-	Note      string
+	Relation  string    `json:"relation"`
+	Target    string    `json:"target"`
+	Direction Direction `json:"direction"`
+	Role      string    `json:"role,omitempty"`
+	Priority  *int      `json:"priority,omitempty"`
+	Note      string    `json:"note,omitempty"`
 }
 
 // Entity is one entity as the context sees it: only edges and statements that
 // exist under it, and statements as the knower believes them.
 type Entity struct {
 	Summary
-	Visibility string
-	Interval   *index.Interval
-	Outcomes   []string
-	Body       string
-	File       string
-	Edges      []Edge
+	Visibility string          `json:"visibility"`
+	Interval   *index.Interval `json:"interval,omitempty"`
+	Outcomes   []string        `json:"outcomes,omitempty"`
+	Body       string          `json:"body,omitempty"`
+	File       string          `json:"file"`
+	Edges      []Edge          `json:"edges"`
 	// Statements are the present statements whose subject or object is this
 	// entity: canon truth for an omniscient context, the knower's belief for a
 	// scoped one, with what the knower is ignorant of left out.
-	Statements []Belief
+	Statements []Belief `json:"statements"`
 }
 
 // Entities lists every entity present under ctx, sorted by ID.

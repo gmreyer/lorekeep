@@ -1,0 +1,51 @@
+{
+  "id": "char_heir",
+  "type": "character",
+  "name": "The Heir",
+  "status": "canon",
+  "visibility": "public",
+  "body": "Subject of the contested statements.",
+  "file": "characters/heir.md",
+  "edges": [
+    {
+      "relation": "mentions",
+      "target": "char_conformist",
+      "direction": "in",
+      "role": "soft_link"
+    }
+  ],
+  "statements": [
+    {
+      "statement": "stmt_heir_common",
+      "subject": "char_heir",
+      "relation": "sworn_to",
+      "object": "fac_court",
+      "held": "true",
+      "source": "canon"
+    },
+    {
+      "statement": "stmt_heir_lives",
+      "subject": "char_heir",
+      "relation": "heir_of",
+      "object": "fac_court",
+      "held": "true",
+      "source": "canon"
+    },
+    {
+      "statement": "stmt_heir_sworn_fell",
+      "subject": "char_heir",
+      "relation": "sworn_to",
+      "object": "fac_order",
+      "held": "true",
+      "source": "canon"
+    },
+    {
+      "statement": "stmt_veil_secret",
+      "subject": "char_heir",
+      "relation": "sworn_to",
+      "object": "fac_veil",
+      "held": "true",
+      "source": "canon"
+    }
+  ]
+}
