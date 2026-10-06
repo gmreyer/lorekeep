@@ -61,7 +61,7 @@ var dumpTables = []tableDump{
 	{"entities", "id, type, name, status, visibility, visibility_kind, visibility_act, era, earliest, latest, precision, file, length(body)", "id"},
 	{"aliases", "entity, ord, alias", "entity, ord"},
 	{"edges", "id, source, relation, target, priority, ord, note", "id"},
-	{"statements", "id, name, subject, relation, object, truth, status, visibility, visibility_kind, visibility_act, file, length(body)", "id"},
+	{"statements", "id, name, subject, relation, object, truth, common, status, visibility, visibility_kind, visibility_act, file, length(body)", "id"},
 	{"beliefs", "id, agent, statement, value, confidence, since_era, since_earliest, since_latest, acquired_from, ord", "id"},
 	{"assertions", "id, agent, statement, value, audience, when_era, when_earliest, when_latest, ord", "id"},
 	{"outcomes", "decision, ord, outcome", "decision, ord"},

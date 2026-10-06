@@ -157,6 +157,7 @@ type Statement struct {
 	Relation   string      `json:"relation"`
 	Object     string      `json:"object"`
 	Truth      string      `json:"truth"`
+	Common     bool        `json:"common,omitempty"`
 	Status     string      `json:"status"`
 	Visibility string      `json:"visibility"`
 	ValidIn    []Condition `json:"valid_in,omitempty"`
@@ -244,6 +245,7 @@ func Compile(w *world.World, pack *schema.Pack) *Index {
 			Relation:   s.Relation,
 			Object:     s.Object,
 			Truth:      string(s.Truth),
+			Common:     s.Common,
 			Status:     string(s.Status),
 			Visibility: s.Visibility.String(),
 			ValidIn:    compileConditions(s.ValidIn),

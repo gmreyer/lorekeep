@@ -229,8 +229,8 @@ fac_ashen_court	0	The Court
 8	evt_siege_of_vale	occurred_at	loc_vale_of_orrin	NULL	0	""
 9	fac_ashen_court	participated_in	evt_siege_of_vale	NULL	0	""
 
-## statements (id, name, subject, relation, object, truth, status, visibility, visibility_kind, visibility_act, file, length(body))
-stmt_orrin_oath	Orrin was sworn to the Ashen Court	char_orrin	sworn_to	fac_ashen_court	false	canon	internal	internal	NULL	statements/orrin-oath.md	148
+## statements (id, name, subject, relation, object, truth, common, status, visibility, visibility_kind, visibility_act, file, length(body))
+stmt_orrin_oath	Orrin was sworn to the Ashen Court	char_orrin	sworn_to	fac_ashen_court	false	1	canon	internal	internal	NULL	statements/orrin-oath.md	148
 
 ## beliefs (id, agent, statement, value, confidence, since_era, since_earliest, since_latest, acquired_from, ord)
 1	char_kaelen_vor	stmt_orrin_oath	1	high	third_reign	412	NULL	char_miren	0

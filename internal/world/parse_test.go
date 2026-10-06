@@ -1,6 +1,7 @@
 package world
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -127,6 +128,27 @@ func TestParseStatement(t *testing.T) {
 	}
 	if s.Visibility.Kind != VisibilityInternal {
 		t.Errorf("visibility = %+v", s.Visibility)
+	}
+}
+
+// common marks a statement every agent knows the truth of unless they believe
+// otherwise. It is an explicit authoring act, so it defaults to false.
+func TestStatementCommon(t *testing.T) {
+	doc, fs := Parse("statements/s.md", file(statementFM+"common: true\n", ""))
+	noFindings(t, fs)
+	if doc.Statement == nil || !doc.Statement.Common {
+		t.Errorf("common: true did not set Common: %+v", doc.Statement)
+	}
+
+	doc, fs = Parse("statements/s.md", file(statementFM, ""))
+	noFindings(t, fs)
+	if doc.Statement == nil || doc.Statement.Common {
+		t.Errorf("an omitted common must be false: %+v", doc.Statement)
+	}
+
+	_, fs = Parse("statements/s.md", file(statementFM+"common: maybe\n", ""))
+	if got := codesOf(fs); !slices.Equal(got, []Code{CodeParse}) {
+		t.Errorf("common: maybe gave %v, want [%s]", got, CodeParse)
 	}
 }
 

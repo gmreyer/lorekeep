@@ -624,6 +624,7 @@
       "relation": "sworn_to",
       "object": "fac_ashen_court",
       "truth": "false",
+      "common": true,
       "status": "canon",
       "visibility": "internal",
       "file": "statements/orrin-oath.md",

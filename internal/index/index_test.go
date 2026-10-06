@@ -1,6 +1,7 @@
 package index
 
 import (
+	"database/sql"
 	"flag"
 	"os"
 	"path/filepath"
@@ -261,5 +262,28 @@ func writeFile(t *testing.T, root, rel, body string) {
 	p := filepath.Join(root, filepath.FromSlash(rel))
 	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// common rides through both serialisers: the snapshot for the runtime, the
+// SQLite column for queries.
+func TestStatementCommonCarried(t *testing.T) {
+	res, out := buildFixture(t)
+	if len(res.Index.Statements) == 0 || !res.Index.Statements[0].Common {
+		t.Fatalf("the fixture's common statement lost Common: %+v", res.Index.Statements)
+	}
+
+	db, err := sql.Open("sqlite", filepath.Join(out, IndexFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var common int
+	if err := db.QueryRow(`SELECT common FROM statements WHERE id = ?`,
+		res.Index.Statements[0].ID).Scan(&common); err != nil {
+		t.Fatal(err)
+	}
+	if common != 1 {
+		t.Errorf("statements.common = %d, want 1", common)
 	}
 }

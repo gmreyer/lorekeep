@@ -6,6 +6,7 @@ subject: char_orrin
 relation: sworn_to
 object: fac_ashen_court
 truth: false
+common: true
 status: canon
 visibility: internal
 valid_in: null
