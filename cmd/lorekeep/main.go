@@ -48,6 +48,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return update(args[1:], stdout, stderr)
 	case "git":
 		return gitCmd(args[1:], stdout, stderr)
+	case "mcp":
+		return mcpCmd(args[1:], stdout, stderr)
 	case "version", "--version", "-version":
 		fmt.Fprintf(stdout, "lorekeep %s\n", version())
 		return exitOK
@@ -70,6 +72,8 @@ usage:
   lorekeep setup <dir> -name <name> [-example] [-git] [-ci] [-version <vX.Y.Z>]
   lorekeep update [<world-dir>] [-version <vX.Y.Z>]
   lorekeep git [<world-dir>] [-ci]
+  lorekeep mcp <world-dir> [-role author]
+  lorekeep mcp install <world-dir>
   lorekeep version
 
 A world directory holds a schema pack in schema/ and authored lore in world/.
@@ -98,6 +102,14 @@ setup flags:
 
 git flags:
   -ci               also add the GitHub Actions workflow
+
+mcp serves the project to Claude Desktop and Claude Code over stdio. Agents
+read through the resolver and can only write proposals under proposals/.
+mcp install registers the server: it writes .mcp.json in the project and,
+after asking, adds an entry to the Claude Desktop config.
+
+mcp flags:
+  -role <role>      the session role; only author for now
 
 update flags:
   -version <v>      the release to move to (default: the latest)
