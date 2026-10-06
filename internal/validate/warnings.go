@@ -17,6 +17,133 @@ func (v *validator) checkWarnings() {
 	v.warnCanonOnDraft()
 	v.warnUnbelievedStatements()
 	v.warnDirectoryMismatch()
+	v.warnInheritedConflicts()
+}
+
+// warnInheritedConflicts reports an agent who inherits both values of one
+// statement and has nothing to choose between them.
+//
+// An agent with no belief of their own on a statement takes it from the
+// factions they are a member of, walked in priority order. Two memberships
+// whose factions disagree, with priority not ordering them — both unnumbered,
+// or both numbered and equal — leave the inherited value to file order, which
+// is arbitrary. The fix is a priority or a belief of the agent's own, and
+// only a writer can say which.
+//
+// A pair counts only if it can hold at once: two edges, or the two faction
+// beliefs behind them, that name different outcomes of one decision never
+// meet in any reading of the story. Inheritance is one level deep, as in the
+// resolver: an agent inherits from the factions it is directly a member of,
+// never from theirs.
+//
+// This re-walks memberships from the world model rather than asking
+// internal/resolve, which already implements inheritance: resolve reads the
+// derived index, internal/index imports this package to validate before it
+// builds, and importing resolve here would close that cycle.
+//
+// It binds to the membership role, never to a relation name, for the same
+// reason the lifespan check binds to participation.
+func (v *validator) warnInheritedConflicts() {
+	membership := map[string]bool{}
+	for _, r := range v.pack.RelationsWithRole(schema.RoleMembership) {
+		membership[r.Name] = true
+	}
+	agentTypes, _ := v.pack.ExpandGroup("agent")
+	agent := map[string]bool{}
+	for _, t := range agentTypes {
+		agent[t] = true
+	}
+	if len(membership) == 0 || len(agent) == 0 {
+		return
+	}
+
+	type inherited struct {
+		edge   int // index into the agent's relations
+		from   string
+		belief world.Belief
+	}
+
+	for _, e := range v.w.Entities {
+		if !agent[e.Type] {
+			continue
+		}
+		own := map[string]bool{}
+		for _, b := range e.Beliefs {
+			own[b.Statement] = true
+		}
+
+		// Every belief the agent could inherit, grouped by statement in the
+		// order the statements are first met, so findings are stable.
+		var order []string
+		byStmt := map[string][]inherited{}
+		for i, r := range e.Relations {
+			if !membership[r.Type] {
+				continue
+			}
+			faction, ok := v.w.Entity(r.Target)
+			if !ok {
+				continue
+			}
+			for _, b := range faction.Beliefs {
+				if b.Value == nil || b.Statement == "" || own[b.Statement] {
+					continue
+				}
+				if _, seen := byStmt[b.Statement]; !seen {
+					order = append(order, b.Statement)
+				}
+				byStmt[b.Statement] = append(byStmt[b.Statement], inherited{i, r.Target, b})
+			}
+		}
+
+		for _, stmt := range order {
+			cands := byStmt[stmt]
+		pairs:
+			for x := range cands {
+				for y := x + 1; y < len(cands); y++ {
+					a, b := cands[x], cands[y]
+					ra, rb := e.Relations[a.edge], e.Relations[b.edge]
+					if a.from == b.from || *a.belief.Value == *b.belief.Value ||
+						priorityOrders(ra.Priority, rb.Priority) ||
+						exclusive(ra.ValidIn, rb.ValidIn, a.belief.ValidIn, b.belief.ValidIn) {
+						continue
+					}
+					v.warn(e.Source, CodeInheritedConflict, fmt.Sprintf("relations[%d].target", b.edge),
+						"%q inherits conflicting beliefs on %q: %q holds %t and %q holds %t, and "+
+							"priority does not order the two memberships; number them, or give %q "+
+							"a belief of their own", e.ID, stmt, a.from, *a.belief.Value,
+						b.from, *b.belief.Value, e.ID)
+					break pairs
+				}
+			}
+		}
+	}
+}
+
+// priorityOrders reports whether two membership priorities decide between
+// their edges. The resolver walks memberships by priority ascending with
+// unnumbered ones last, so a numbered edge always beats an unnumbered one;
+// only two unnumbered edges, or two equal numbers, leave the order to file
+// position.
+func priorityOrders(a, b *int) bool {
+	if a == nil || b == nil {
+		return (a == nil) != (b == nil)
+	}
+	return *a != *b
+}
+
+// exclusive reports whether a set of valid_in lists can never hold together:
+// two of them name different outcomes of the same decision.
+func exclusive(lists ...[]world.Condition) bool {
+	outcome := map[string]string{}
+	for _, conds := range lists {
+		for _, c := range conds {
+			if prev, ok := outcome[c.Decision]; ok && prev != c.Outcome {
+				return true
+			}
+			outcome[c.Decision] = c.Outcome
+		}
+	}
+	return false
 }
 
 // references is the set of ids something in canon points at.

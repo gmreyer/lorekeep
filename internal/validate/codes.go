@@ -57,4 +57,5 @@ const (
 	CodeCanonDependsOnDraft world.Code = "canon_depends_on_draft"
 	CodeUnbelievedStatement world.Code = "unbelieved_statement"
 	CodeDirectoryMismatch   world.Code = "directory_mismatch"
+	CodeInheritedConflict   world.Code = "inherited_belief_conflict"
 )
