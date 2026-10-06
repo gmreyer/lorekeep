@@ -144,7 +144,10 @@ func (r *Resolver) ownBelief(ctx Context, a *index.Entity, s *index.Statement) (
 	out.Held = strconv.FormatBool(best.Value)
 	out.Source = Explicit
 	out.Confidence = best.Confidence
-	out.AcquiredFrom = best.AcquiredFrom
+	// The source is named only if it is present: an absent one would leak.
+	if _, ok := r.entity(ctx, best.AcquiredFrom); ok {
+		out.AcquiredFrom = best.AcquiredFrom
+	}
 	return out, true
 }
 

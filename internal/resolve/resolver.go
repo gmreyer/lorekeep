@@ -117,10 +117,18 @@ func (r *Resolver) entity(ctx Context, id string) (*index.Entity, bool) {
 	return e, true
 }
 
-// statement returns a statement if it is present under ctx.
+// statement returns a statement if it is present under ctx: its valid_in
+// holds, its status is read, and its subject and object are present. Like an
+// edge, a statement about an absent entity is absent, or reading it would say
+// that entity exists somewhere in the story.
 func (r *Resolver) statement(ctx Context, id string) (*index.Statement, bool) {
 	s, ok := r.statements[id]
 	if !ok || !holds(s.ValidIn, ctx.worldline) || !ctx.admits(s.Status) {
+		return nil, false
+	}
+	_, subj := r.entity(ctx, s.Subject)
+	_, obj := r.entity(ctx, s.Object)
+	if !subj || !obj {
 		return nil, false
 	}
 	return s, true

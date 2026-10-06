@@ -194,3 +194,35 @@ func TestUnnumberedMembershipsLast(t *testing.T) {
 	b, ok := beliefOn(t, r, Scoped(nil, "char_a"), "char_a", "stmt_x")
 	wantBelief(t, b, ok, "true", Inherited, "fac_d")
 }
+
+// A statement about an entity absent under the context is absent too, and a
+// belief never names an absent source: either would tell the reader that the
+// hidden entity exists somewhere in the story.
+func TestNothingNamesAnAbsentEntity(t *testing.T) {
+	idx := tinyIndex()
+	idx.Statements = []index.Statement{{ID: "stmt_keep", Subject: "char_a", Relation: "member_of",
+		Object: "loc_keep", Truth: "true", Common: true, Status: "canon", Visibility: "internal"}}
+	idx.Entities[1].Beliefs = []index.Belief{{Statement: "stmt_x", Value: true, AcquiredFrom: "loc_keep"}}
+	idx.Statements = append(idx.Statements, index.Statement{ID: "stmt_x", Subject: "char_a",
+		Relation: "member_of", Object: "fac_b", Truth: "true", Status: "canon", Visibility: "internal"})
+	r := New(idx)
+
+	if b, ok := beliefOn(t, r, Scoped(nil, "char_a"), "char_a", "stmt_keep"); ok {
+		t.Errorf("baseline: a statement about the absent keep is shown: %+v", b)
+	}
+	if b, ok := beliefOn(t, r, Scoped(held, "char_a"), "char_a", "stmt_keep"); !ok || b.Source != Common {
+		t.Errorf("held: the statement about the keep is missing: %+v", b)
+	}
+	if e := mustEntity(t, r, Omniscient(nil), "char_a"); len(e.Statements) != 1 {
+		t.Errorf("baseline: char_a statements = %+v, want stmt_x only", e.Statements)
+	}
+
+	b, ok := beliefOn(t, r, Scoped(nil, "char_a"), "char_a", "stmt_x")
+	if !ok || b.AcquiredFrom != "" {
+		t.Errorf("baseline: belief names an absent source: %+v", b)
+	}
+	b, _ = beliefOn(t, r, Scoped(held, "char_a"), "char_a", "stmt_x")
+	if b.AcquiredFrom != "loc_keep" {
+		t.Errorf("held: acquired_from lost: %+v", b)
+	}
+}
