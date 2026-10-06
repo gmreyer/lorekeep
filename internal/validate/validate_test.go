@@ -522,6 +522,57 @@ beliefs:
 			},
 			want: []world.Code{CodeDirectoryMismatch},
 		},
+		{
+			// Orrin, with no belief of his own, belongs to two factions that
+			// disagree, and nothing says which membership wins.
+			name: "two unordered memberships disagree",
+			overlay: inheritedConflict(`
+  - { type: member_of, target: fac_ashen_court }
+  - { type: member_of, target: fac_grey_wardens }`, ""),
+			want: []world.Code{CodeInheritedConflict},
+		},
+		{
+			name: "priority orders them",
+			overlay: inheritedConflict(`
+  - { type: member_of, target: fac_ashen_court, priority: 1 }
+  - { type: member_of, target: fac_grey_wardens, priority: 2 }`, ""),
+		},
+		{
+			// The resolver walks numbered memberships first and unnumbered
+			// ones last, so one number is enough to decide.
+			name: "numbered beats unnumbered",
+			overlay: inheritedConflict(`
+  - { type: member_of, target: fac_ashen_court }
+  - { type: member_of, target: fac_grey_wardens, priority: 1 }`, ""),
+		},
+		{
+			name: "an own belief overrides",
+			overlay: inheritedConflict(`
+  - { type: member_of, target: fac_ashen_court }
+  - { type: member_of, target: fac_grey_wardens }`, `
+beliefs:
+  - { statement: stmt_orrin_oath, value: false, confidence: high }`),
+		},
+		{
+			// No reading of the story has Orrin in both factions, so the two
+			// positions never meet.
+			name: "memberships in exclusive branches",
+			overlay: inheritedConflict(`
+  - { type: member_of, target: fac_ashen_court,
+      valid_in: [{ decision: dec_siege_outcome, outcome: held }] }
+  - { type: member_of, target: fac_grey_wardens,
+      valid_in: [{ decision: dec_siege_outcome, outcome: fell }] }`, ""),
+		},
+		{
+			// The same check, through a project relation that carries the
+			// membership role. A rule that looked for member_of by name would
+			// go quiet here.
+			name: "binds to the membership role, not a name",
+			overlay: inheritedConflict(`
+  - { type: sworn_to, target: fac_ashen_court }
+  - { type: sworn_to, target: fac_grey_wardens }`, ""),
+			want: []world.Code{CodeInheritedConflict},
+		},
 	}
 
 	for _, tt := range tests {
@@ -529,6 +580,32 @@ beliefs:
 			fs := check(t, tt.overlay)
 			wantWarnings(t, fs, tt.want...)
 		})
+	}
+}
+
+// inheritedConflict is the overlay for the inherited-belief cases: a second
+// faction that denies the oath the Ashen Court affirms, and Orrin — who holds
+// no belief on it in the fixture — with the given membership edges and,
+// optionally, beliefs of his own.
+func inheritedConflict(memberships, beliefs string) map[string]string {
+	return map[string]string{
+		"world/factions/grey-wardens.md": entityFile(`id: fac_grey_wardens
+type: faction
+name: The Grey Wardens
+status: canon
+visibility: public
+beliefs:
+  - { statement: stmt_orrin_oath, value: false, confidence: medium }`),
+		"world/characters/orrin.md": entityFile(`id: char_orrin
+type: character
+name: Orrin
+status: canon
+visibility: spoiler:act2
+lifespan: { era: third_reign, earliest: 378, latest: 414 }
+relations:
+  - { type: originates_from, target: loc_vale_of_orrin }
+  - { type: participated_in, target: evt_siege_of_vale,
+      valid_in: [{ decision: dec_siege_outcome, outcome: betrayed }] }` + memberships + beliefs),
 	}
 }
 
