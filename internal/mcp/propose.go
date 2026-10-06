@@ -35,7 +35,7 @@ var ErrInvalidProposal = errors.New("proposal rejected")
 // ProposedFile is one entity or statement file an agent proposes, by its
 // path under world/.
 type ProposedFile struct {
-	Path    string `json:"path" jsonschema:"the file's path under world/, with forward slashes"`
+	Path    string `json:"path" jsonschema:"the file's path from the project root, starting world/ and ending .md, with forward slashes, e.g. world/characters/kaelen.md"`
 	Content string `json:"content" jsonschema:"the whole file: YAML frontmatter and Markdown body"`
 }
 
