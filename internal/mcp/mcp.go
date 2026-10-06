@@ -37,5 +37,18 @@ var ErrNotImplemented = errors.New("not implemented")
 // Serve speaks MCP over in and out until in closes or ctx is done. out
 // carries JSON-RPC only; nothing else may write to it.
 func Serve(ctx context.Context, cfg Config, in io.Reader, out io.Writer) error {
-	return ErrNotImplemented
+	s, err := New(cfg)
+	if err != nil {
+		return err
+	}
+	rc, ok := in.(io.ReadCloser)
+	if !ok {
+		rc = io.NopCloser(in)
+	}
+	return s.mcp.Run(ctx, &sdk.IOTransport{Reader: rc, Writer: nopWriteCloser{out}})
 }
+
+// nopWriteCloser leaves out open when the session ends: the caller owns it.
+type nopWriteCloser struct{ io.Writer }
+
+func (nopWriteCloser) Close() error { return nil }
