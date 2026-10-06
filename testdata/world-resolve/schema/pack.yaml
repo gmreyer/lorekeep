@@ -1,0 +1,6 @@
+# Fixture world for the resolver tests. Small, and every entity exists to
+# exercise one resolver behaviour; README.md lists them.
+name: resolve_fixture
+version: 0.1.0
+core_version: 0.2.0
+description: Fixture pack for the resolver tests.
