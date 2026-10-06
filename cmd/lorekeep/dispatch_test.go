@@ -299,9 +299,41 @@ func TestBuildAcceptsUpdate(t *testing.T) {
 	if pinOf(t, dir) != "v0.4.0" {
 		t.Errorf("pin = %s, want v0.4.0", pinOf(t, dir))
 	}
-	if !strings.Contains(stdout, "pinned to lorekeep v0.4.0 (was v0.3.0)") ||
-		strings.Count(stdout, "fake args=build") != 2 { // the check, then the build
-		t.Errorf("stdout:\n%s", stdout)
+	if !strings.Contains(stderr, "pinned to lorekeep v0.4.0 (was v0.3.0)") ||
+		strings.Count(stderr, "fake args=build") != 1 || // the check
+		strings.Count(stdout, "fake args=build") != 1 { // the build itself
+		t.Errorf("stdout:\n%s\nstderr:\n%s", stdout, stderr)
+	}
+}
+
+// The offer is a notice, not the command's output: for lorekeep mcp at a
+// console, stdout is the JSON-RPC stream. Accepting writes nothing to it
+// beyond what the pinned command itself prints.
+func TestUpdateOfferWritesStderrOnly(t *testing.T) {
+	poseAs(t, "v0.3.0")
+	f := testSystem(t, true, "y\n")
+	f.latest, f.notes = "v0.4.0", "Adds the thing."
+	f.publish(t, "v0.4.0")
+	dir := newProject(t, "v0.3.0")
+
+	code, stdout, stderr := exec(t, "build", dir)
+	if code != exitOK {
+		t.Fatalf("exit %d\nstderr:\n%s", code, stderr)
+	}
+	for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
+		if !strings.HasPrefix(line, "fake args=build "+dir) { // the build's own output
+			t.Errorf("offer wrote to stdout: %q", line)
+		}
+	}
+	for _, want := range []string{
+		"lorekeep v0.4.0 is available",
+		"Adds the thing.",
+		"checking the project with lorekeep v0.4.0",
+		"pinned to lorekeep v0.4.0 (was v0.3.0)",
+	} {
+		if !strings.Contains(stderr, want) {
+			t.Errorf("stderr lacks %q:\n%s", want, stderr)
+		}
 	}
 }
 

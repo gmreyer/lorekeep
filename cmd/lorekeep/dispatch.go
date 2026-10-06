@@ -93,7 +93,9 @@ func runPinned(dir string, args []string, stdout, stderr io.Writer) (int, bool) 
 	}
 
 	if sys.interactive {
-		pin = offerUpdate(dir, pin, stdout, stderr)
+		// Notices, not the command's output: for lorekeep mcp, stdout is the
+		// JSON-RPC stream, so the offer writes to stderr only.
+		pin = offerUpdate(dir, pin, stderr, stderr)
 	}
 
 	self := version()
