@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gmreyer/lorekeep/internal/validate"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -285,5 +286,45 @@ func TestStatementCommonCarried(t *testing.T) {
 	}
 	if common != 1 {
 		t.Errorf("statements.common = %d, want 1", common)
+	}
+}
+
+// TestLoadWritesNothing: Load is the read-only half of Build, for consumers
+// that hold the world in memory and rebuild on change.
+func TestLoadWritesNothing(t *testing.T) {
+	repo := copyTree(t, fixtureRepo)
+	res, err := Load(repo)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if res.Findings.HasErrors() {
+		t.Fatalf("the fixture world should load clean:\n%v", res.Findings)
+	}
+	if res.Index == nil {
+		t.Fatal("Index is nil for a sound world")
+	}
+	if len(res.Written) != 0 {
+		t.Errorf("Written = %v, want nothing", res.Written)
+	}
+	if _, err := os.Stat(filepath.Join(repo, BuildDir)); !os.IsNotExist(err) {
+		t.Errorf("Load created %s/", BuildDir)
+	}
+
+	broken := "---\nid: char_orrin\ntype: character\nname: Orrin\nstatus: canon\nvisibility: public\n" +
+		"relations:\n  - { type: originates_from, target: loc_nowhere }\n---\n"
+	writeFile(t, repo, "world/characters/orrin.md", broken)
+	res, err = Load(repo)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if res.Index != nil {
+		t.Error("Index is set for a world with a dangling id")
+	}
+	var dangling bool
+	for _, f := range res.Findings {
+		dangling = dangling || f.Code == validate.CodeDangling
+	}
+	if !dangling {
+		t.Errorf("no dangling_reference finding:\n%v", res.Findings)
 	}
 }
