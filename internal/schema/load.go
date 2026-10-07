@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -237,6 +238,10 @@ func checkReserved(l *errList, file, path, name, kind string) bool {
 	return true
 }
 
+// prefixPattern is an ID prefix: the validator's ID rule, [a-z0-9_], without a
+// leading, trailing or doubled underscore, since the editor appends one.
+var prefixPattern = regexp.MustCompile(`^[a-z0-9]+(_[a-z0-9]+)*$`)
+
 func checkTypes(l *errList, p *Pack) {
 	// Entity types and groups share one namespace: both are usable wherever a
 	// type name is, so a group named after a type would be ambiguous.
@@ -251,6 +256,10 @@ func checkTypes(l *errList, p *Pack) {
 			continue
 		}
 		ns.claim(l, typesFile, path, t.Name, "entity type")
+		if t.Prefix != "" && !prefixPattern.MatchString(t.Prefix) {
+			l.add(CodeBadPrefix, typesFile, fmt.Sprintf("types[%d].prefix", i),
+				"prefix %q of %q must be lowercase letters and digits, in words joined by single underscores", t.Prefix, t.Name)
+		}
 	}
 	for i, g := range p.Groups {
 		path := fmt.Sprintf("groups[%d].name", i)

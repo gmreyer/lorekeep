@@ -1,17 +1,24 @@
 types:
   - name: character
+    prefix: char
     description: An individual, living or dead.
   - name: faction
+    prefix: fac
     description: An organised group that can hold a position.
   - name: location
+    prefix: loc
     description: A place, at whatever granularity.
   - name: event
+    prefix: evt
     description: Something that happened at a point or interval in time.
   - name: object
+    prefix: obj
     description: An artefact, item, or otherwise significant thing.
   - name: concept
+    prefix: cpt
     description: A magic system, religion, law, technology, or custom.
   - name: decision
+    prefix: dec
     description: A branch point in the story, with a declared set of outcomes.
 
 groups:

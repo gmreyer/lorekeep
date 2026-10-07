@@ -30,7 +30,12 @@ type RoleDef struct {
 
 // EntityType is one member of the closed set of entity types.
 type EntityType struct {
-	Name        string `yaml:"name"`
+	Name string `yaml:"name"`
+	// Prefix starts the ID of every entity the editor creates of this type:
+	// prefix, underscore, six random characters. Empty means the type name.
+	// It only ever names new IDs; an existing ID is never derived from it or
+	// checked against it.
+	Prefix      string `yaml:"prefix,omitempty"`
 	Description string `yaml:"description,omitempty"`
 }
 
@@ -156,6 +161,20 @@ func (p *Pack) RelationsWithRole(role Role) []Relation {
 func (p *Pack) HasType(name string) bool {
 	_, ok := p.res.types[name]
 	return ok
+}
+
+// IDPrefix returns the prefix for new IDs of the entity type: its declared
+// prefix, or else its name. A group or an unknown name has none.
+func (p *Pack) IDPrefix(typ string) (string, bool) {
+	if !p.HasType(typ) {
+		return "", false
+	}
+	for _, t := range p.Types {
+		if t.Name == typ && t.Prefix != "" {
+			return t.Prefix, true
+		}
+	}
+	return typ, true
 }
 
 // ExpandGroup returns the concrete entity types a group covers, sorted. It is
