@@ -24,6 +24,7 @@ const (
 	CodeReservedName  Code = "reserved_name"
 	CodeCaseCollision Code = "case_collision"
 	CodeCollision     Code = "collision"
+	CodeBadPrefix     Code = "bad_prefix"
 
 	// Relation declarations.
 	CodeSymmetricInverse Code = "symmetric_inverse"
