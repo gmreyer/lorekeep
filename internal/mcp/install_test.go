@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -76,5 +77,44 @@ func TestProjectName(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "schema", "pack.yaml"), []byte("name: eldoria\nversion: 0.1.0\n"), 0o644)
 	if n, from := ProjectName(dir); n != "eldoria" || !from {
 		t.Errorf("pack = %q %v", n, from)
+	}
+}
+
+// The Microsoft Store build of Claude Desktop reads its own copy of AppData
+// under its package folder, so that copy wins over %APPDATA%.
+func TestDesktopConfigCandidates(t *testing.T) {
+	appdata, local, conf := t.TempDir(), t.TempDir(), t.TempDir()
+	classic := filepath.Join(appdata, "Claude", DesktopConfigFile)
+	store := func(pkg string) string {
+		return filepath.Join(local, "Packages", pkg, "LocalCache", "Roaming", "Claude", DesktopConfigFile)
+	}
+
+	got := desktopConfigCandidates("windows", appdata, local, conf)
+	if want := []string{classic}; !slices.Equal(got, want) {
+		t.Errorf("no Store install: got %v, want %v", got, want)
+	}
+
+	if err := os.MkdirAll(filepath.Join(local, "Packages", "Claude_pzs8sxrjxfjjc"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(local, "Packages", "ClaudeOther_x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got = desktopConfigCandidates("windows", appdata, local, conf)
+	if want := []string{store("Claude_pzs8sxrjxfjjc")}; !slices.Equal(got, want) {
+		t.Errorf("one Store install: got %v, want %v", got, want)
+	}
+
+	if err := os.MkdirAll(filepath.Join(local, "Packages", "Claude_aaaa"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got = desktopConfigCandidates("windows", appdata, local, conf)
+	if want := []string{store("Claude_aaaa"), store("Claude_pzs8sxrjxfjjc")}; !slices.Equal(got, want) {
+		t.Errorf("two Store installs: got %v, want %v", got, want)
+	}
+
+	got = desktopConfigCandidates("darwin", "", "", conf)
+	if want := []string{filepath.Join(conf, "Claude", DesktopConfigFile)}; !slices.Equal(got, want) {
+		t.Errorf("not Windows: got %v, want %v", got, want)
 	}
 }

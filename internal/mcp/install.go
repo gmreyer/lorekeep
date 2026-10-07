@@ -3,10 +3,12 @@ package mcp
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 )
@@ -57,20 +59,50 @@ func ProjectName(dir string) (name string, fromPack bool) {
 	return filepath.Base(abs), false
 }
 
-// DesktopConfigPath is where Claude Desktop keeps its config:
-// %APPDATA%\Claude on Windows, the user config directory's Claude elsewhere.
-func DesktopConfigPath() (string, error) {
-	var base string
-	if runtime.GOOS == "windows" {
-		base = os.Getenv("APPDATA")
+// DesktopConfigPaths are the config files Claude Desktop may be reading,
+// most likely first; more than one means the caller must ask which.
+//
+// The Microsoft Store build of Claude Desktop does not read %APPDATA%: Windows
+// gives a packaged app its own copy of AppData under its package folder, so a
+// file written to %APPDATA%\Claude is never seen and is overwritten when the
+// app next saves its settings. A Store install is found by its package folder,
+// Claude_<publisher hash>, and its copy is used; %APPDATA%\Claude only when
+// there is none.
+func DesktopConfigPaths() ([]string, error) {
+	conf, err := os.UserConfigDir()
+	if err != nil && runtime.GOOS != "windows" {
+		return nil, fmt.Errorf("cannot find Claude Desktop's config directory: %w", err)
 	}
-	if base == "" {
-		var err error
-		if base, err = os.UserConfigDir(); err != nil {
-			return "", fmt.Errorf("cannot find Claude Desktop's config directory: %w", err)
+	paths := desktopConfigCandidates(runtime.GOOS, os.Getenv("APPDATA"), os.Getenv("LOCALAPPDATA"), conf)
+	if len(paths) == 0 {
+		return nil, errors.New("cannot find Claude Desktop's config directory: APPDATA is not set")
+	}
+	return paths, nil
+}
+
+// desktopConfigCandidates is DesktopConfigPaths with its environment passed
+// in, so tests can build a fake one.
+func desktopConfigCandidates(goos, appdata, localAppdata, userConfig string) []string {
+	if goos != "windows" {
+		return []string{filepath.Join(userConfig, "Claude", DesktopConfigFile)}
+	}
+	var store []string
+	if localAppdata != "" {
+		pkgs, _ := filepath.Glob(filepath.Join(localAppdata, "Packages", "Claude_*"))
+		for _, pkg := range pkgs {
+			if info, err := os.Stat(pkg); err == nil && info.IsDir() {
+				store = append(store, filepath.Join(pkg, "LocalCache", "Roaming", "Claude", DesktopConfigFile))
+			}
 		}
 	}
-	return filepath.Join(base, "Claude", DesktopConfigFile), nil
+	if len(store) > 0 {
+		slices.Sort(store)
+		return store
+	}
+	if appdata == "" {
+		return nil
+	}
+	return []string{filepath.Join(appdata, "Claude", DesktopConfigFile)}
 }
 
 // Merge adds entry under name in a config file's mcpServers, keeping every

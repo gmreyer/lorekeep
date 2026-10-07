@@ -10,12 +10,14 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/gmreyer/lorekeep/internal/mcp"
 )
 
-// desktopConfigPath is where Claude Desktop's config lives; tests replace it.
-var desktopConfigPath = mcp.DesktopConfigPath
+// desktopConfigPaths are the configs Claude Desktop may read; tests replace it.
+var desktopConfigPaths = mcp.DesktopConfigPaths
 
 // mcpCmd runs lorekeep mcp and lorekeep mcp install.
 //
@@ -117,15 +119,33 @@ func mcpInstall(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "lorekeep mcp install: no project name in schema/pack.yaml; using the directory name %q\n", name)
 	}
 	server := mcp.DesktopServerName(name)
-	path, err := desktopConfigPath()
+	paths, err := desktopConfigPaths()
 	if err != nil {
 		return fail(err)
+	}
+	path := paths[0]
+	if len(paths) > 1 {
+		fmt.Fprintln(stdout, "Claude Desktop is installed more than once; its configs are:")
+		for i, p := range paths {
+			fmt.Fprintf(stdout, "  %d. %s\n", i+1, p)
+		}
+		if !sys.interactive {
+			fmt.Fprintln(stdout, "No console to ask which one, so Claude Desktop's config is unchanged.")
+			return exitOK
+		}
+		i := choose(stderr, "Which one should lorekeep add the server to?", len(paths))
+		if i < 0 {
+			fmt.Fprintln(stdout, "Claude Desktop's config is unchanged.")
+			return exitOK
+		}
+		path = paths[i]
 	}
 
 	existing, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
 		return fail(err)
 	}
+	existed := err == nil
 	_, needed, err := mcp.Merge(existing, server, entry)
 	if err != nil {
 		return fail(fmt.Errorf("%s: %w", path, err))
@@ -141,6 +161,7 @@ func mcpInstall(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "No console to ask on, so Claude Desktop's config is unchanged.")
 		return exitOK
 	}
+	fmt.Fprintln(stderr, "Quit Claude Desktop first (tray icon, then Quit): while it runs, it rewrites this file and drops the entry.")
 	if !ask(stderr, "Add it to Claude Desktop's config?", false) {
 		fmt.Fprintln(stdout, "Claude Desktop's config is unchanged.")
 		return exitOK
@@ -148,7 +169,23 @@ func mcpInstall(args []string, stdout, stderr io.Writer) int {
 	if _, err := mcp.WriteConfig(path, server, entry, true); err != nil {
 		return fail(fmt.Errorf("%s: %w", path, err))
 	}
-	fmt.Fprintf(stdout, "added %s to %s (the previous file is kept as %s.bak)\n", server, path, filepath.Base(path))
+	if !existed {
+		fmt.Fprintf(stdout, "created %s with %s\n", path, server)
+	} else {
+		fmt.Fprintf(stdout, "added %s to %s (the previous file is kept as %s.bak)\n", server, path, filepath.Base(path))
+	}
 	fmt.Fprintln(stdout, "Restart Claude Desktop to pick it up.")
 	return exitOK
+}
+
+// choose asks for a number from 1 to n at the console and returns it from 0,
+// or -1 for an empty or unreadable answer.
+func choose(w io.Writer, question string, n int) int {
+	fmt.Fprintf(w, "%s [1-%d] ", question, n)
+	line, _ := sys.in.ReadString('\n')
+	i, err := strconv.Atoi(strings.TrimSpace(line))
+	if err != nil || i < 1 || i > n {
+		return -1
+	}
+	return i - 1
 }

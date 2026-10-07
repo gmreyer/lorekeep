@@ -20,9 +20,9 @@ func installFixture(t *testing.T, interactive bool, answers string) (dir, cfg st
 	sys.executable = func() (string, error) { return exe, nil }
 	dir = newProject(t, "v0.3.0")
 	cfg = filepath.Join(t.TempDir(), "Claude", mcp.DesktopConfigFile)
-	old := desktopConfigPath
-	desktopConfigPath = func() (string, error) { return cfg, nil }
-	t.Cleanup(func() { desktopConfigPath = old })
+	old := desktopConfigPaths
+	desktopConfigPaths = func() ([]string, error) { return []string{cfg}, nil }
+	t.Cleanup(func() { desktopConfigPaths = old })
 	return dir, cfg
 }
 
@@ -245,5 +245,61 @@ func TestMCPUpdateOfferIsOnStderr(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "v0.5.0 is available") {
 		t.Errorf("the update offer is not on stderr: %q", stderr)
+	}
+}
+
+// A new config has nothing to back up, and install must not claim it does.
+func TestInstallSaysCreatedForNewConfig(t *testing.T) {
+	dir, cfg := installFixture(t, true, "y\n")
+	code, stdout, stderr := exec(t, "mcp", "install", dir)
+	if code != exitOK {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "created "+cfg) || strings.Contains(stdout, ".bak") {
+		t.Errorf("stdout should say the config was created, with no backup:\n%s", stdout)
+	}
+}
+
+// Claude Desktop rewrites its config while it runs, so the writer is told to
+// quit it before saying yes.
+func TestInstallWarnsToQuitDesktop(t *testing.T) {
+	dir, _ := installFixture(t, true, "n\n")
+	if code, _, stderr := exec(t, "mcp", "install", dir); code != exitOK || !strings.Contains(stderr, "Quit Claude Desktop") {
+		t.Errorf("exit %d; no quit warning before the question:\n%s", code, stderr)
+	}
+}
+
+// Two Store installs: the writer picks one, and only that file is written.
+func TestInstallAsksWhichDesktopConfig(t *testing.T) {
+	dir, first := installFixture(t, true, "2\ny\n")
+	second := filepath.Join(t.TempDir(), "Claude", mcp.DesktopConfigFile)
+	desktopConfigPaths = func() ([]string, error) { return []string{first, second}, nil }
+	if code, _, stderr := exec(t, "mcp", "install", dir); code != exitOK {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	if _, err := os.Stat(first); err == nil {
+		t.Error("the first config was written")
+	}
+	if _, s := readServers(t, second); len(s) != 1 {
+		t.Errorf("second config servers = %v", s)
+	}
+}
+
+// Two Store installs and no console: nobody can choose, so nothing is written.
+func TestInstallSeveralConfigsWithoutConsoleWritesNothing(t *testing.T) {
+	dir, first := installFixture(t, false, "")
+	second := filepath.Join(t.TempDir(), "Claude", mcp.DesktopConfigFile)
+	desktopConfigPaths = func() ([]string, error) { return []string{first, second}, nil }
+	code, stdout, stderr := exec(t, "mcp", "install", dir)
+	if code != exitOK {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	for _, p := range []string{first, second} {
+		if _, err := os.Stat(p); err == nil {
+			t.Errorf("%s was written without a console", p)
+		}
+	}
+	if !strings.Contains(stdout, first) || !strings.Contains(stdout, second) {
+		t.Errorf("both candidates should be listed:\n%s", stdout)
 	}
 }
