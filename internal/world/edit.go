@@ -396,3 +396,77 @@ func deletePath(n *yaml.Node, path []string) error {
 func keyNode(key string) *yaml.Node {
 	return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}
 }
+
+// RawBody returns a file's prose for editing: everything after the closing
+// fence, with LF line endings, without the blank lines before it or the white
+// space after it. Unlike Parse's Body it keeps the first line's indentation,
+// which can be Markdown (an indented code block, a verse).
+func RawBody(src []byte) (string, error) {
+	cut, _, err := bodyStart(src)
+	if err != nil {
+		return "", err
+	}
+	return trimProse(string(src[cut:])), nil
+}
+
+// bodyStart is the offset just past the closing fence's line.
+func bodyStart(src []byte) (int, rawFrontmatter, error) {
+	fm, err := locateFrontmatter(src)
+	if err != nil {
+		return 0, fm, err
+	}
+	cut := len(src)
+	if i := bytes.IndexByte(src[fm.end:], '\n'); i >= 0 {
+		cut = fm.end + i + 1
+	}
+	return cut, fm, nil
+}
+
+// trimProse normalises prose to LF and drops the blank lines before it and
+// the white space after it, keeping the first line's indentation.
+func trimProse(s string) string {
+	s = strings.TrimRight(strings.ReplaceAll(s, "\r\n", "\n"), " \t\n")
+	for strings.TrimSpace(s) != "" {
+		line, rest, _ := strings.Cut(s, "\n")
+		if strings.TrimSpace(line) != "" {
+			return s
+		}
+		s = rest
+	}
+	return ""
+}
+
+// ReplaceBody returns the file with its prose replaced by body, everything up
+// to and including the closing fence copied byte for byte. The new prose
+// follows one blank line and ends with a line break, in the frontmatter's line
+// ending; an empty body leaves nothing after the fence.
+//
+// When body equals the current prose, as RawBody reads it, src comes back
+// unchanged with changed=false, so a file is written only when its prose
+// really changed. It never touches the filesystem.
+func ReplaceBody(src []byte, body string) (out []byte, changed bool, err error) {
+	cut, fm, err := bodyStart(src)
+	if err != nil {
+		return nil, false, err
+	}
+	body = trimProse(body)
+	if body == trimProse(string(src[cut:])) {
+		return src, false, nil
+	}
+
+	nl := "\n"
+	if fm.crlf {
+		nl = "\r\n"
+	}
+	var b bytes.Buffer
+	b.Write(src[:cut])
+	if cut == len(src) && (cut == 0 || src[cut-1] != '\n') {
+		b.WriteString(nl) // a closing fence at end of file, with no line break
+	}
+	if body != "" {
+		b.WriteString(nl)
+		b.WriteString(strings.ReplaceAll(body, "\n", nl))
+		b.WriteString(nl)
+	}
+	return b.Bytes(), true, nil
+}
