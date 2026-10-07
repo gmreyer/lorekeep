@@ -50,6 +50,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return gitCmd(args[1:], stdout, stderr)
 	case "mcp":
 		return mcpCmd(args[1:], stdout, stderr)
+	case "edit":
+		return editCmd(args[1:], stdout, stderr)
 	case "version", "--version", "-version":
 		fmt.Fprintf(stdout, "lorekeep %s\n", version())
 		return exitOK
@@ -68,6 +70,7 @@ func usage(w io.Writer) {
 
 usage:
   lorekeep                 (at a console: the menu)
+  lorekeep edit <world-dir> [-no-browser]
   lorekeep build <world-dir> [-out <dir>]
   lorekeep setup <dir> -name <name> [-example] [-git] [-ci] [-version <vX.Y.Z>]
   lorekeep update [<world-dir>] [-version <vX.Y.Z>]
@@ -77,6 +80,7 @@ usage:
   lorekeep version
 
 A world directory holds a schema pack in schema/ and authored lore in world/.
+edit opens the editor in your browser; it runs until you press Ctrl+C.
 build validates the whole repository and, if it is sound, writes the SQLite
 index and the JSON game snapshot. Nothing is written when validation fails.
 

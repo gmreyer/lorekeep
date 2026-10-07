@@ -26,6 +26,9 @@ type system struct {
 	recentPath  string
 	now         func() time.Time
 	executable  func() (string, error)
+	// openBrowser opens a URL in the default browser; nil, as in tests,
+	// opens nothing.
+	openBrowser func(url string) error
 }
 
 // sys starts empty: non-interactive and without a cache, which is what tests
@@ -38,6 +41,7 @@ func newSystem() *system {
 		interactive: isTerminal(os.Stdin),
 		now:         time.Now,
 		executable:  os.Executable,
+		openBrowser: openBrowser,
 	}
 	s.versions, _ = versions.New()
 	s.statePath, _ = versions.StatePath()

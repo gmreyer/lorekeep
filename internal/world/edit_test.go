@@ -478,3 +478,35 @@ func TestEditIndexOutOfRange(t *testing.T) {
 		}
 	}
 }
+
+func TestReplaceBody(t *testing.T) {
+	cases := []struct {
+		name, src, body, want string
+		changed               bool
+	}{
+		{"replaces prose", "---\nid: a\n---\n\nOld words.\n", "New words.", "---\nid: a\n---\n\nNew words.\n", true},
+		{"same prose is no change", "---\nid: a\n---\n\nSame.\n\n", "\n\nSame.\r\n", "---\nid: a\n---\n\nSame.\n\n", false},
+		{"keeps CRLF", "---\r\nid: a\r\n---\r\n\r\nOld.\r\n", "One.\nTwo.", "---\r\nid: a\r\n---\r\n\r\nOne.\r\nTwo.\r\n", true},
+		{"adds prose to a bare file", "---\nid: a\n---", "Now some.", "---\nid: a\n---\n\nNow some.\n", true},
+		{"empties prose", "---\nid: a\n---\n\nGone.\n", "", "---\nid: a\n---\n", true},
+		{"keeps the first line's indentation", "---\nid: a\n---\n\nx\n", "\n\n    code()\nprose  \n", "---\nid: a\n---\n\n    code()\nprose\n", true},
+		{"same indented prose is no change", "---\nid: a\n---\n\n    code()\n", "    code()", "---\nid: a\n---\n\n    code()\n", false},
+		{"keeps BOM and frontmatter bytes", "\xef\xbb\xbf---\nid:   a # odd\n---\nx\n", "y", "\xef\xbb\xbf---\nid:   a # odd\n---\n\ny\n", true},
+	}
+	for _, c := range cases {
+		got, changed, err := ReplaceBody([]byte(c.src), c.body)
+		if err != nil {
+			t.Errorf("%s: %v", c.name, err)
+			continue
+		}
+		if string(got) != c.want || changed != c.changed {
+			t.Errorf("%s: got %q, %v; want %q, %v", c.name, got, changed, c.want, c.changed)
+		}
+	}
+	if got, err := RawBody([]byte("---\r\nid: a\r\n---\r\n\r\n    code()\r\nmore\r\n\r\n")); err != nil || got != "    code()\nmore" {
+		t.Errorf("RawBody = %q, %v", got, err)
+	}
+	if _, _, err := ReplaceBody([]byte("no fence\n"), "x"); err == nil {
+		t.Error("unframed file: want an error")
+	}
+}

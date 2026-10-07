@@ -1,0 +1,12 @@
+package editor
+
+import "github.com/gmreyer/lorekeep/internal/resolve"
+
+// entityStub is the entity page until Task 2 replaces it.
+templ entityStub(e resolve.Entity) {
+	<article class="lk-entity">
+		<h1 class="lk-title">{ e.Name }</h1>
+		<p class="lk-type">{ e.Type }</p>
+		<div class="lk-prose">{ e.Body }</div>
+	</article>
+}
