@@ -124,24 +124,32 @@ func TestRelationsPanelGroupsByRole(t *testing.T) {
 func TestRelationRowEdits(t *testing.T) {
 	s, _ := newTestServer(t)
 	const id = "char_kaelen_vor"
-	post := func(path string, form url.Values) {
+	// rowPath is a row edit as the panel posts it: the index and the
+	// relation's identity, read from the draft as it stands.
+	rowPath := func(i int, edit string) string {
+		r := draftEntity(t, s, id).Relations[i]
+		return "/entity/" + id + "/relations/" + strconv.Itoa(i) + "/" + edit + "?tabs=" + id + "&at=" + id +
+			"&relation=" + r.Type + "&target=" + r.Target
+	}
+	post := func(i int, edit string, form url.Values) {
 		t.Helper()
-		w := do(t, s, "POST", "/entity/"+id+"/relations/"+path+"?tabs="+id+"&at="+id, form)
+		w := do(t, s, "POST", rowPath(i, edit), form)
 		if w.Code != http.StatusOK {
-			t.Fatalf("%s: %d\n%s", path, w.Code, w.Body)
+			t.Fatalf("%d/%s: %d\n%s", i, edit, w.Code, w.Body)
 		}
 		if !strings.Contains(w.Header().Get("HX-Trigger"), eventDirty) {
-			t.Errorf("%s: HX-Trigger %q, want %s", path, w.Header().Get("HX-Trigger"), eventDirty)
+			t.Errorf("%d/%s: HX-Trigger %q, want %s\n%s", i, edit, w.Header().Get("HX-Trigger"), eventDirty, w.Body)
 		}
 		if !strings.Contains(w.Body.String(), `id="lk-rel-panel"`) {
-			t.Errorf("%s: the answer is not the panel", path)
+			t.Errorf("%d/%s: the answer is not the panel", i, edit)
 		}
 	}
 
-	post("1/priority", url.Values{"priority": {"4"}})
-	post("1/note", url.Values{"note": {"born there"}})
-	post("0/priority", url.Values{"priority": {""}})
-	post("2/remove", nil)
+	post(1, "priority", url.Values{"priority": {"4"}})
+	post(1, "note", url.Values{"note": {"born there"}})
+	post(0, "priority", url.Values{"priority": {""}})
+	stale := rowPath(1, "note") // as a panel rendered now would post it
+	post(2, "remove", nil)
 
 	e := draftEntity(t, s, id)
 	if len(e.Relations) != 2 {
@@ -164,6 +172,130 @@ func TestRelationRowEdits(t *testing.T) {
 	}
 	if strings.Contains(w.Header().Get("HX-Trigger"), eventDirty) {
 		t.Error("a refused edit marked the entity dirty")
+	}
+
+	// An edit naming a relation that is no longer at its index is refused.
+	post(0, "remove", nil)
+	before := draftEntity(t, s, id).Relations
+	w = do(t, s, "POST", stale, url.Values{"note": {"lands nowhere"}})
+	if !strings.Contains(w.Body.String(), "has moved") || strings.Contains(w.Header().Get("HX-Trigger"), eventDirty) {
+		t.Errorf("a stale edit was not refused: %s\n%s", w.Header().Get("HX-Trigger"), w.Body)
+	}
+	if after := draftEntity(t, s, id).Relations; len(after) != len(before) || after[0].Note != before[0].Note {
+		t.Errorf("a stale edit changed the draft: %+v", after)
+	}
+}
+
+// TestAmbiguousRowsReadOnly: two relations to one target that differ only in
+// valid_in, one of them hidden by the worldline, cannot be told apart from
+// the resolver's edges, so the shown one is read only.
+func TestAmbiguousRowsReadOnly(t *testing.T) {
+	s, repo := newTestServer(t)
+	const id = "char_kaelen_vor"
+	rels := draftEntity(t, s, id).Relations
+	membership, court := rels[0].Type, rels[0].Target
+	d, err := s.draft("dec_siege_outcome")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dec, _, _ := d.Entity()
+	held, fell := dec.Outcomes[0], dec.Outcomes[1]
+
+	file := filepath.Join(repo, "world", filepath.FromSlash(draftFile(t, s, id)))
+	src, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	extra := "  - { type: " + membership + ", target: " + court + ", valid_in: [{ decision: dec_siege_outcome, outcome: " + held + " }] }\n" +
+		"  - { type: " + membership + ", target: " + court + ", valid_in: [{ decision: dec_siege_outcome, outcome: " + fell + " }] }\n"
+	anchor := "relations:\n"
+	src = []byte(strings.Replace(string(src), anchor, anchor+extra, 1))
+	if err := os.WriteFile(file, src, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if fs, err := s.rebuild(); err != nil || fs.Errors() > 0 {
+		t.Fatalf("rebuild: %v %v", err, fs)
+	}
+	setWorldline(s, map[string]string{"dec_siege_outcome": held})
+
+	got := panelHTML(t, s, id)
+	if n := strings.Count(got, ">"+membership+"<"); n != 2 {
+		t.Fatalf("%d %s rows, want the unconditional one and one of the two:\n%s", n, membership, got)
+	}
+	if !strings.Contains(got, ambiguousNote) {
+		t.Errorf("the ambiguous row does not say why it is read only:\n%s", got)
+	}
+	// The unconditional one (index 2 now) stays editable; neither
+	// conditional one (0, 1) has an edit.
+	if !strings.Contains(got, "relations/2/remove") {
+		t.Errorf("the unambiguous row lost its edits:\n%s", got)
+	}
+	for _, i := range []string{"0", "1"} {
+		if strings.Contains(got, "relations/"+i+"/") {
+			t.Errorf("conditional row %s is editable:\n%s", i, got)
+		}
+	}
+}
+
+// draftFile is the world-relative file of id.
+func draftFile(t *testing.T, s *Server, id string) string {
+	t.Helper()
+	d, err := s.draft(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d.File
+}
+
+// TestReplayRelations: the draft's changes to the list map each item back
+// to its place in the base file, or mark it new.
+func TestReplayRelations(t *testing.T) {
+	rel := func(p ...string) []string { return append([]string{"relations"}, p...) }
+	changes := []world.Change{
+		{Path: rel("1"), Delete: true},
+		{Path: rel("-"), Value: world.Relation{}},
+		{Path: rel("0", "note"), Value: "x"},
+		{Path: []string{"name"}, Value: "y"},
+		{Path: rel("2"), Delete: true},
+		{Path: rel("-"), Value: world.Relation{}},
+	}
+	if got, want := replayRelations(4, changes), []int{0, 2, newRow, newRow}; !slices.Equal(got, want) {
+		t.Errorf("replay = %v, want %v", got, want)
+	}
+	if got := replayRelations(2, []world.Change{{Path: rel(), Delete: true}, {Path: rel("-")}}); !slices.Equal(got, []int{newRow}) {
+		t.Errorf("replay after deleting the list = %v", got)
+	}
+}
+
+// TestTakenIDsCoverEverySource: entities and statements in the index, and
+// entities created in any open draft, are all taken.
+func TestTakenIDsCoverEverySource(t *testing.T) {
+	s, _ := newTestServer(t)
+	s.drafts.mu.Lock()
+	s.drafts.m["char_miren"] = &Draft{ID: "char_miren", Created: []Created{{ID: "char_other1"}}}
+	s.drafts.mu.Unlock()
+	d := &Draft{ID: "char_kaelen_vor", Created: []Created{{ID: "char_mine01"}}}
+
+	var ids []string
+	s.drafts.mu.Lock()
+	err := s.read(func(cur *loaded) error {
+		ids = s.takenIDs(cur, d)
+		return nil
+	})
+	s.drafts.mu.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stmt string
+	_ = s.read(func(cur *loaded) error { stmt = cur.idx.Statements[0].ID; return nil })
+	taken := idSet(ids)
+	for _, want := range []string{"char_kaelen_vor", "LOC_VALE_OF_ORRIN", stmt, "char_other1", "Char_Mine01"} {
+		if !taken(want) {
+			t.Errorf("%s is not taken", want)
+		}
+	}
+	if taken("char_free00") {
+		t.Error("an unused ID is taken")
 	}
 }
 
@@ -204,6 +336,40 @@ func TestPagesReadThroughResolver(t *testing.T) {
 	// The search still offers to create it: the typed text, not the entity.
 	if got := search(); strings.Contains(got, ">"+keep+"<") || strings.Contains(got, "loc_vale_keep") {
 		t.Errorf("under fell, the search finds %s:\n%s", keep, got)
+	}
+
+	// With a draft holding changes, the hidden relation stays hidden: the
+	// horn gains a link to the Vale, and an edit reaches its hidden one.
+	const horn = "obj_horn"
+	hornType, valeType := draftEntity(t, s, horn).Type, draftEntity(t, s, "loc_vale").Type
+	rel := validRelations(s.cur.pack, hornType, valeType)[0].Name
+	w := do(t, s, "POST", "/entity/"+horn+"/relations/link?tabs="+horn+"&at="+horn+"&target=loc_vale&relation="+rel, nil)
+	if !s.dirty(horn) {
+		t.Fatalf("the link was not added:\n%s", w.Body)
+	}
+	if err := s.editDraft(horn, func(d *Draft) error {
+		d.Changes = append(d.Changes, world.Change{Path: []string{"relations", "0", "note"}, Value: "hidden"})
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got := panelHTML(t, s, horn)
+	if strings.Contains(got, keep) || strings.Contains(got, "not present") || strings.Contains(got, "hidden") {
+		t.Errorf("with a draft, the horn's panel shows its hidden relation:\n%s", got)
+	}
+	if !strings.Contains(got, ">The Vale<") || !strings.Contains(got, "relations/1/remove") {
+		t.Errorf("the added relation is not row 1 of the draft:\n%s", got)
+	}
+}
+
+// TestPanelErrorHidesID: a panel that cannot be read says so in plain
+// words, never with the ID.
+func TestPanelErrorHidesID(t *testing.T) {
+	s := newResolveServer(t)
+	setWorldline(s, map[string]string{"dec_vale": "fell"})
+	got := panelHTML(t, s, "loc_vale_keep")
+	if strings.Contains(got, "loc_vale_keep") || !strings.Contains(got, "not in the current branch") {
+		t.Errorf("error panel:\n%s", got)
 	}
 }
 
@@ -287,17 +453,18 @@ func TestPickerOffersOnlyValidRelations(t *testing.T) {
 // and picking it anyway is refused. The core pack's soft link runs between
 // any two types, so this is checked on the pieces.
 func TestNoValidRelationGreysOut(t *testing.T) {
-	if _, err := pickRelation(nil, "", "location", "character"); err == nil ||
-		err.Error() != "no relation between location and character" {
+	const src, dst = schema.TypeEvent, schema.TypeCharacter
+	want := "no relation between " + src + " and " + dst
+	if _, err := pickRelation(nil, "", src, dst); err == nil || err.Error() != want {
 		t.Errorf("pickRelation with none: %v", err)
 	}
 	var b bytes.Buffer
-	m := relSearch{ID: "a", Query: "b", SrcType: "location", Types: []string{"character"},
-		Hits: []relHit{{ID: "b_id", Name: "Bee", Type: "character"}}}
+	m := relSearch{ID: "a", Query: "b", SrcType: src, Types: []string{dst},
+		Hits: []relHit{{ID: "b_id", Name: "Bee", Type: dst}}}
 	if err := relHits(m).Render(context.Background(), &b); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(b.String(), "no relation between location and character") ||
+	if !strings.Contains(b.String(), want) ||
 		strings.Contains(b.String(), "target=b_id") || strings.Contains(b.String(), "b_id") {
 		t.Errorf("a hit with no relation:\n%s", b.String())
 	}
@@ -308,7 +475,7 @@ func TestNoValidRelationGreysOut(t *testing.T) {
 func TestSingleValidRelationAutoPicked(t *testing.T) {
 	s, _ := newTestServer(t)
 	const src, dst = "loc_vale_of_orrin", "char_miren"
-	only := validRelations(s.cur.pack, "location", schema.TypeCharacter)
+	only := validRelations(s.cur.pack, draftEntity(t, s, src).Type, schema.TypeCharacter)
 	if len(only) != 1 {
 		t.Fatalf("fixture: location → character allows %v, want one", only)
 	}
@@ -436,7 +603,26 @@ func TestCreateAndLinkSaveTogether(t *testing.T) {
 // named for it.
 func TestCreateFolderForNewType(t *testing.T) {
 	s, _ := newTestServer(t)
-	const src, typ = "char_kaelen_vor", "language" // a project type no entity has
+	const src = "char_kaelen_vor"
+	// A type no entity of the fixture has, that a character can reach.
+	used := map[string]bool{}
+	_ = s.read(func(cur *loaded) error {
+		ents, err := cur.res.Entities(s.readContext())
+		for _, e := range ents {
+			used[e.Type] = true
+		}
+		return err
+	})
+	var typ string
+	for _, tt := range targetTypes(s.cur.pack, schema.TypeCharacter) {
+		if !used[tt] {
+			typ = tt
+			break
+		}
+	}
+	if typ == "" {
+		t.Fatal("fixture: every type has an entity")
+	}
 	rel := validRelations(s.cur.pack, schema.TypeCharacter, typ)[0].Name
 	w := do(t, s, "POST", "/entity/"+src+"/relations/create?tabs="+src+"&at="+src,
 		url.Values{"name": {"Old Tongue"}, "type": {typ}, "relation": {rel}})
@@ -444,8 +630,8 @@ func TestCreateFolderForNewType(t *testing.T) {
 	if len(d.Created) != 1 {
 		t.Fatalf("no create:\n%s", w.Body)
 	}
-	if c := d.Created[0]; c.File != "language/"+c.ID+".md" {
-		t.Errorf("file %q, want language/<id>.md", c.File)
+	if c := d.Created[0]; c.File != typ+"/"+c.ID+".md" {
+		t.Errorf("file %q, want %s/<id>.md", c.File, typ)
 	}
 }
 

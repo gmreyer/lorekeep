@@ -107,9 +107,24 @@ func roleLabel(role schema.Role) string {
 func (s *Server) relationsPanel(id string, tabs Tabs) templ.Component {
 	p, err := s.relPanelFor(id, tabs)
 	if err != nil {
-		return relPanelError(id, err.Error())
+		return relPanelError(s.panelErrText(id, err))
 	}
 	return relationsPanel(p)
+}
+
+// panelErrText is a panel that could not be read, in plain words: the
+// resolver's error names the ID, which the panel never shows.
+func (s *Server) panelErrText(id string, err error) string {
+	switch {
+	case errors.Is(err, resolve.ErrUnknownEntity):
+		if _, _, ok := s.created(id); ok {
+			return "Not saved yet: its relations show after the first save."
+		}
+		return "This entity is not in the current branch."
+	case errors.Is(err, errNoBuild):
+		return "The world has not built yet."
+	}
+	return "The relations could not be read."
 }
 
 // relPanelFor reads the panel of id. The draft and the created names are
@@ -124,6 +139,12 @@ func (s *Server) relPanelFor(id string, tabs Tabs) (relPanel, error) {
 	if err != nil {
 		return p, err
 	}
+	baseDoc, _ := world.Parse(d.File, d.Base)
+	if baseDoc.Entity == nil {
+		return p, fmt.Errorf("%s does not read as an entity", d.File)
+	}
+	base := baseDoc.Entity.Relations
+	origin := replayRelations(len(base), d.Changes)
 	snap := s.snapshot()
 	var rows []relRow
 	err = s.read(func(cur *loaded) error {
@@ -132,7 +153,8 @@ func (s *Server) relPanelFor(id string, tabs Tabs) (relPanel, error) {
 		if err != nil {
 			return err
 		}
-		rows = authoredRows(cur, ctx, authored.Relations, e.Edges, d.Dirty(), snap)
+		shown, ambiguous := matchShown(base, e.Edges)
+		rows = authoredRows(cur, ctx, authored.Relations, origin, shown, ambiguous, snap)
 		for _, ed := range e.Edges {
 			if ed.Direction == resolve.Out {
 				continue
@@ -148,39 +170,114 @@ func (s *Server) relPanelFor(id string, tabs Tabs) (relPanel, error) {
 	return p, nil
 }
 
-// authoredRows are the entity's own relations, indexed in its authored list.
-// With a draft holding changes every authored relation shows, as the draft
-// has it; without one, only those the resolver shows under the worldline.
-func authoredRows(cur *loaded, ctx resolve.Context, rels []world.Relation, edges []resolve.Edge, dirty bool, snap snapshot) []relRow {
-	shown := make([]bool, len(rels))
-	if dirty {
-		for i := range shown {
-			shown[i] = true
+// newRow marks an authored relation added by the draft: it has no place in
+// the file on disk, and shows as the draft has it.
+const newRow = -1
+
+// replayRelations follows the draft's changes to the relations list: for
+// each item of the list as the draft leaves it, the index it had in the base
+// file, or newRow for an item the draft added.
+func replayRelations(n int, changes []world.Change) []int {
+	origin := make([]int, n)
+	for i := range origin {
+		origin[i] = i
+	}
+	for _, c := range changes {
+		if len(c.Path) == 0 || c.Path[0] != "relations" {
+			continue
 		}
-	} else {
-		// Match each edge the resolver shows to the first unclaimed authored
-		// relation saying the same, so an edit names the right index.
-		for _, ed := range edges {
-			if ed.Direction != resolve.Out {
-				continue
+		switch {
+		case len(c.Path) == 1 && c.Delete:
+			origin = nil
+		case len(c.Path) == 1:
+			// The whole list replaced: every item is the draft's own.
+			items, _ := c.Value.([]world.Relation)
+			origin = make([]int, len(items))
+			for i := range origin {
+				origin[i] = newRow
 			}
-			for i, r := range rels {
-				if !shown[i] && r.Type == ed.Relation && r.Target == ed.Target &&
-					r.Note == ed.Note && equalPriority(r.Priority, ed.Priority) {
-					shown[i] = true
-					break
-				}
+		case len(c.Path) == 2 && c.Path[1] == "-" && !c.Delete:
+			origin = append(origin, newRow)
+		case len(c.Path) == 2 && c.Delete:
+			if i, err := strconv.Atoi(c.Path[1]); err == nil && i >= 0 && i < len(origin) {
+				origin = slices.Delete(origin, i, i+1)
 			}
+		}
+		// An edit inside an item, or an item replaced in place, keeps its
+		// place and its origin.
+	}
+	return origin
+}
+
+// relKey is what an edge the resolver shows says of an authored relation.
+// It lacks valid_in: two relations differing only there share a key.
+type relKey struct {
+	Type, Target, Note string
+	Priority           string
+}
+
+func keyOf(typ, target, note string, priority *int) relKey {
+	k := relKey{Type: typ, Target: target, Note: note}
+	if priority != nil {
+		k.Priority = strconv.Itoa(*priority)
+	}
+	return k
+}
+
+// matchShown finds which relations of the base file the resolver shows under
+// the worldline, by matching its outgoing edges to them. When a key has more
+// relations in the file than edges shown and their valid_in differ, which of
+// them holds cannot be told: those shown are marked ambiguous, and are not
+// edited, so an edit never lands on a hidden one.
+func matchShown(base []world.Relation, edges []resolve.Edge) (shown, ambiguous []bool) {
+	shown = make([]bool, len(base))
+	ambiguous = make([]bool, len(base))
+	edgeCount := map[relKey]int{}
+	for _, ed := range edges {
+		if ed.Direction == resolve.Out {
+			edgeCount[keyOf(ed.Relation, ed.Target, ed.Note, ed.Priority)]++
 		}
 	}
+	candidates := map[relKey][]int{}
+	for i, r := range base {
+		k := keyOf(r.Type, r.Target, r.Note, r.Priority)
+		candidates[k] = append(candidates[k], i)
+	}
+	for k, idx := range candidates {
+		n := min(edgeCount[k], len(idx))
+		differ := slices.ContainsFunc(idx, func(i int) bool {
+			return !slices.Equal(base[i].ValidIn, base[idx[0]].ValidIn)
+		})
+		for _, i := range idx[:n] {
+			shown[i] = true
+			ambiguous[i] = n < len(idx) && differ
+		}
+	}
+	return shown, ambiguous
+}
+
+// ambiguousNote is what a relation that cannot be edited safely says.
+const ambiguousNote = "conditions differ by branch: edit it in a later version"
+
+// authoredRows are the entity's own relations as the draft leaves them,
+// indexed in the draft's list. A relation from the file shows only when the
+// resolver shows it under the worldline; one the draft added always shows.
+func authoredRows(cur *loaded, ctx resolve.Context, rels []world.Relation, origin []int, shown, ambiguous []bool, snap snapshot) []relRow {
 	var out []relRow
 	for i, r := range rels {
-		if !shown[i] {
+		if i >= len(origin) {
+			break // the draft's list is not what its changes say; show no more
+		}
+		o := origin[i]
+		if o != newRow && !shown[o] {
 			continue
 		}
 		row := relRow{
 			Index: i, Relation: r.Type, Target: r.Target, Note: r.Note,
 			Conds: slices.Clone(r.ValidIn),
+		}
+		if o != newRow && ambiguous[o] {
+			row.Index, row.From = -1, ambiguousNote
 		}
 		if r.Priority != nil {
 			row.Priority = strconv.Itoa(*r.Priority)
@@ -270,10 +367,16 @@ func relURL(id string, tabs Tabs, action string, extra url.Values) string {
 	return "/entity/" + id + "/relations/" + action + "?" + q.Encode()
 }
 
-// rowURL is the address of an edit to the authored relation at index i.
-func rowURL(id string, tabs Tabs, i int, edit string) string {
-	return relURL(id, tabs, strconv.Itoa(i)+"/"+edit, nil)
+// rowURL is the address of an edit to an authored row. It names the
+// relation as well as its index, so an edit to a list that changed since the
+// panel rendered is refused instead of landing on another relation.
+func rowURL(id string, tabs Tabs, row relRow, edit string) string {
+	return relURL(id, tabs, strconv.Itoa(row.Index)+"/"+edit,
+		url.Values{"relation": {row.Relation}, "target": {row.Target}})
 }
+
+// errRowMoved is an edit to a relation that is no longer at its index.
+var errRowMoved = errors.New("that relation has moved since the panel was shown; the panel is up to date now, so try again")
 
 // relationEdit applies one edit to the authored relation the request names,
 // then answers with the re-rendered panel.
@@ -295,8 +398,9 @@ func (s *Server) relationEdit(w http.ResponseWriter, r *http.Request, change fun
 		if err != nil {
 			return err
 		}
-		if i >= len(e.Relations) {
-			return fmt.Errorf("there is no relation %d", i)
+		if i >= len(e.Relations) || e.Relations[i].Type != r.FormValue("relation") ||
+			e.Relations[i].Target != r.FormValue("target") {
+			return errRowMoved
 		}
 		d.Changes = append(d.Changes, c)
 		if _, err := d.Bytes(); err != nil {
@@ -318,6 +422,9 @@ func (s *Server) answerPanel(w http.ResponseWriter, r *http.Request, id string, 
 	}
 	if editErr != nil {
 		p.Err = editErr.Error()
+		if errors.Is(editErr, resolve.ErrUnknownEntity) || errors.Is(editErr, errNoBuild) {
+			p.Err = s.panelErrText(id, editErr)
+		}
 	} else {
 		trigger(w, eventDirty)
 	}
@@ -651,6 +758,30 @@ func idSet(ids []string) func(string) bool {
 	return func(id string) bool { return set[strings.ToLower(id)] }
 }
 
+// takenIDs are every ID a new entity must not take: each entity and
+// statement in the index, present under the worldline or not (nothing read
+// here is shown), and each entity created in an open draft, d's included.
+// The caller holds the drafts lock, so the drafts are read in place and two
+// creates cannot pick the same ID; and runs under s.read for cur.
+func (s *Server) takenIDs(cur *loaded, d *Draft) []string {
+	var ids []string
+	for _, e := range cur.idx.Entities {
+		ids = append(ids, e.ID)
+	}
+	for _, st := range cur.idx.Statements {
+		ids = append(ids, st.ID)
+	}
+	for _, od := range s.drafts.m {
+		for _, c := range od.Created {
+			ids = append(ids, c.ID)
+		}
+	}
+	for _, c := range d.Created {
+		ids = append(ids, c.ID)
+	}
+	return ids
+}
+
 // typeFolder is the world-relative folder a new entity of typ goes in: the
 // one every entity of that type already shares, or else one named for the
 // type (Step 6 plan Q2). It reads every entity's file, present under the
@@ -758,34 +889,15 @@ func (s *Server) relationCreate(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createLinked(id, typ, name, rel string) (string, error) {
 	var created string
 	err := s.editDraft(id, func(d *Draft) error {
-		// The drafts lock is held here, so every open draft's created IDs
-		// are read in place, and two creates cannot pick the same one.
-		var ids []string
-		for _, od := range s.drafts.m {
-			for _, c := range od.Created {
-				ids = append(ids, c.ID)
-			}
-		}
-		for _, c := range d.Created {
-			ids = append(ids, c.ID)
-		}
 		var folder string
 		err := s.read(func(cur *loaded) error {
 			prefix, ok := cur.pack.IDPrefix(typ)
 			if !ok {
 				return fmt.Errorf("%s is not an entity type", typ)
 			}
-			// Unique against every ID in the world, present under the
-			// worldline or not; nothing read here is shown.
-			for _, e := range cur.idx.Entities {
-				ids = append(ids, e.ID)
-			}
-			for _, st := range cur.idx.Statements {
-				ids = append(ids, st.ID)
-			}
 			folder = typeFolder(cur, typ)
 			var err error
-			created, err = newID(prefix, idSet(ids))
+			created, err = newID(prefix, idSet(s.takenIDs(cur, d)))
 			return err
 		})
 		if err != nil {

@@ -150,7 +150,7 @@ templ relRowView(p relPanel, row relRow) {
 					type="button"
 					class="lk-x lk-rel-remove"
 					title="Remove"
-					hx-post={ rowURL(p.ID, p.Tabs, row.Index, "remove") }
+					hx-post={ rowURL(p.ID, p.Tabs, row, "remove") }
 					hx-target="#lk-rel-panel"
 					hx-swap="outerHTML"
 				>×</button>
@@ -165,7 +165,7 @@ templ relRowView(p relPanel, row relRow) {
 					value={ row.Priority }
 					placeholder="priority"
 					aria-label="Priority"
-					hx-post={ rowURL(p.ID, p.Tabs, row.Index, "priority") }
+					hx-post={ rowURL(p.ID, p.Tabs, row, "priority") }
 					hx-trigger="change"
 					hx-target="#lk-rel-panel"
 					hx-swap="outerHTML"
@@ -177,7 +177,7 @@ templ relRowView(p relPanel, row relRow) {
 					value={ row.Note }
 					placeholder="note"
 					aria-label="Note"
-					hx-post={ rowURL(p.ID, p.Tabs, row.Index, "note") }
+					hx-post={ rowURL(p.ID, p.Tabs, row, "note") }
 					hx-trigger="change"
 					hx-target="#lk-rel-panel"
 					hx-swap="outerHTML"
@@ -202,8 +202,8 @@ templ relRowView(p relPanel, row relRow) {
 }
 
 // relPanelError is a panel that could not be read.
-templ relPanelError(id string, msg string) {
-	<div class="lk-rel" id="lk-rel-panel" data-entity={ id }>
+templ relPanelError(msg string) {
+	<div class="lk-rel" id="lk-rel-panel">
 		<p class="lk-rel-err" role="alert">{ msg }</p>
 	</div>
 }
