@@ -1,0 +1,102 @@
+package editor
+
+import "strconv"
+
+// relationsPanel is the right panel's body: the entity's edges by role group.
+// Every edit swaps the whole panel, so row indexes are never stale.
+templ relationsPanel(p relPanel) {
+	<div class="lk-rel" id="lk-rel-panel">
+		if p.Err != "" {
+			<p class="lk-rel-err" role="alert">{ p.Err }</p>
+		}
+		for _, g := range p.Groups {
+			<section class="lk-rel-group">
+				<h3 class="lk-rel-head">{ g.Label }</h3>
+				for _, row := range g.Rows {
+					@relRowView(p, row)
+				}
+			</section>
+		}
+		if len(p.Groups) == 0 {
+			<p class="lk-empty">No relations yet.</p>
+		}
+	</div>
+}
+
+// relRowView is one edge. An authored one is edited on the row and saved
+// with the entity; a derived or inbound one says where it comes from.
+templ relRowView(p relPanel, row relRow) {
+	<div class={ "lk-rel-row", templ.KV("lk-rel-derived", row.Index < 0) }>
+		<div class="lk-rel-line">
+			<span class={ "lk-rel-name", row.Class }>{ row.Relation }</span>
+			if row.Linked {
+				<a
+					class="lk-rel-target"
+					href={ templ.SafeURL(p.Tabs.Open(row.Target).URL()) }
+					data-new-tab={ p.Tabs.Add(row.Target).URL() }
+				>{ row.Name }</a>
+			} else {
+				<span class="lk-rel-absent">{ row.Name }</span>
+			}
+			if row.Index >= 0 {
+				<button
+					type="button"
+					class="lk-x lk-rel-remove"
+					title="Remove"
+					hx-post={ rowURL(p.ID, p.Tabs, row.Index, "remove") }
+					hx-target="#lk-rel-panel"
+					hx-swap="outerHTML"
+				>×</button>
+			}
+		</div>
+		if row.Index >= 0 {
+			<div class="lk-rel-fields">
+				<input
+					type="number"
+					name="priority"
+					class="lk-rel-priority"
+					value={ row.Priority }
+					placeholder="priority"
+					aria-label="Priority"
+					hx-post={ rowURL(p.ID, p.Tabs, row.Index, "priority") }
+					hx-trigger="change"
+					hx-target="#lk-rel-panel"
+					hx-swap="outerHTML"
+				/>
+				<input
+					type="text"
+					name="note"
+					class="lk-rel-note"
+					value={ row.Note }
+					placeholder="note"
+					aria-label="Note"
+					hx-post={ rowURL(p.ID, p.Tabs, row.Index, "note") }
+					hx-trigger="change"
+					hx-target="#lk-rel-panel"
+					hx-swap="outerHTML"
+				/>
+			</div>
+			@conditionChips(CondTarget{Entity: p.ID, Path: []string{"relations", strconv.Itoa(row.Index), "valid_in"}, Conds: row.Conds})
+		} else {
+			<div class="lk-rel-from">{ row.From }</div>
+			if row.Priority != "" || row.Note != "" {
+				<div class="lk-rel-from">
+					if row.Priority != "" {
+						priority { row.Priority }
+					}
+					if row.Priority != "" && row.Note != "" {
+						·
+					}
+					{ row.Note }
+				</div>
+			}
+		}
+	</div>
+}
+
+// relPanelError is a panel that could not be read.
+templ relPanelError(id string, msg string) {
+	<div class="lk-rel" id="lk-rel-panel" data-entity={ id }>
+		<p class="lk-rel-err" role="alert">{ msg }</p>
+	</div>
+}
