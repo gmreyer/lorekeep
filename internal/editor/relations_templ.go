@@ -142,7 +142,7 @@ func relPicker(p relPanel) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" hx-trigger=\"keyup changed delay:200ms, search\" hx-target=\"#lk-rel-hits\" hx-swap=\"innerHTML\"><ul class=\"lk-rel-hits\" id=\"lk-rel-hits\"></ul></details>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" hx-trigger=\"input changed delay:200ms, search\" hx-target=\"#lk-rel-hits\" hx-swap=\"innerHTML\"><ul class=\"lk-rel-hits\" id=\"lk-rel-hits\"></ul></details>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

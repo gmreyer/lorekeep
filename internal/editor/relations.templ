@@ -40,7 +40,7 @@ templ relPicker(p relPanel) {
 			autocomplete="off"
 			aria-label="Find an entity to link"
 			hx-get={ relURL(p.ID, p.Tabs, "search", nil) }
-			hx-trigger="keyup changed delay:200ms, search"
+			hx-trigger="input changed delay:200ms, search"
 			hx-target="#lk-rel-hits"
 			hx-swap="innerHTML"
 		/>
