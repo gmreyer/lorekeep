@@ -1,0 +1,5 @@
+/* Task 4: the save notice in the toolbar's #lk-notice. */
+.lk-notice .lk-quiet { color: var(--muted); }
+.lk-notice .lk-pass { color: var(--pass); }
+.lk-notice .lk-error { color: var(--error); }
+.lk-save-reload { display: inline; margin-left: 8px; }
