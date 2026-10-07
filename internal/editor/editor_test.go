@@ -134,6 +134,11 @@ func TestStaticEmbedded(t *testing.T) {
 	if page.Code != http.StatusOK {
 		t.Fatalf("GET /: %d\n%s", page.Code, page.Body)
 	}
+	// The Content-Security-Policy blocks eval, so htmx must not try it: a
+	// trigger filter that fails to evaluate fires on every event.
+	if !strings.Contains(page.Body.String(), "&#34;allowEval&#34;: false") && !strings.Contains(page.Body.String(), `"allowEval": false`) {
+		t.Error("the layout does not turn off htmx's eval")
+	}
 	for _, path := range []string{
 		"/static/tokens.css", "/static/editor.css", "/static/keys.js", "/static/vendor/htmx.min.js",
 	} {

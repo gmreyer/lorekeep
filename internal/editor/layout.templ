@@ -15,6 +15,8 @@ templ layout(p Page) {
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<!-- The Content-Security-Policy forbids eval: no trigger filters, no js: values. -->
+			<meta name="htmx-config" content={ htmxConfig }/>
 			<title>{ p.Title }</title>
 			<link rel="stylesheet" href="/static/tokens.css"/>
 			<link rel="stylesheet" href="/static/editor.css"/>
@@ -61,6 +63,11 @@ templ layout(p Page) {
 		</body>
 	</html>
 }
+
+// htmxConfig turns off what the Content-Security-Policy would block anyway:
+// evaluated expressions (trigger filters, js: values, hx-on) and the
+// indicator styles htmx injects as an inline <style>.
+const htmxConfig = `{"allowEval": false, "allowScriptTags": false, "includeIndicatorStyles": false}`
 
 // tokenHeaders is the hx-headers value that makes htmx send the token.
 func tokenHeaders(token string) string {

@@ -130,6 +130,16 @@
       record(e);
       return;
     }
+    // Esc folds the open fields form (round 4). It is not rebindable.
+    if (e.key === "Escape" && document.activeElement &&
+        document.activeElement.closest(".lk-fields-open")) {
+      e.preventDefault();
+      // Blur first, so a typed value fires its change (and is posted)
+      // before the form folds; the form queues its requests in order.
+      document.activeElement.blur();
+      click("#lk-fields-toggle");
+      return;
+    }
     var combo = comboOf(e);
     var action = combo && keymap[combo];
     if (!action || !actions[action]) return;
