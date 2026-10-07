@@ -1,6 +1,9 @@
 package editor
 
-import "strconv"
+import (
+	"net/url"
+	"strconv"
+)
 
 // relationsPanel is the right panel's body: the entity's edges by role group.
 // Every edit swaps the whole panel, so row indexes are never stale.
@@ -20,7 +23,111 @@ templ relationsPanel(p relPanel) {
 		if len(p.Groups) == 0 {
 			<p class="lk-empty">No relations yet.</p>
 		}
+		@relPicker(p)
 	</div>
+}
+
+// relPicker is "+ link": a search over names and aliases, target first; the
+// relation is asked for only when the pack allows more than one.
+templ relPicker(p relPanel) {
+	<details class="lk-rel-picker">
+		<summary>+ link</summary>
+		<input
+			type="search"
+			name="q"
+			class="lk-rel-search"
+			placeholder="Find or create…"
+			autocomplete="off"
+			aria-label="Find an entity to link"
+			hx-get={ relURL(p.ID, p.Tabs, "search", nil) }
+			hx-trigger="keyup changed delay:200ms, search"
+			hx-target="#lk-rel-hits"
+			hx-swap="innerHTML"
+		/>
+		<ul class="lk-rel-hits" id="lk-rel-hits"></ul>
+	</details>
+}
+
+// relHits are the search results: each hit by name and type, greyed out when
+// no relation joins the two types, then "Create" for the typed name.
+templ relHits(m relSearch) {
+	for _, h := range m.Hits {
+		<li>
+			if len(h.Choices) == 0 {
+				<div class="lk-hit lk-off" aria-disabled="true">
+					<span>{ h.Name }</span>
+					<span class="lk-hit-type">{ h.Type }</span>
+					<span class="lk-hit-why">no relation between { m.SrcType } and { h.Type }</span>
+				</div>
+			} else {
+				<button
+					type="button"
+					class="lk-hit"
+					hx-post={ relURL(m.ID, m.Tabs, "link", url.Values{"target": {h.ID}}) }
+					hx-target="#lk-rel-panel"
+					hx-swap="outerHTML"
+				>
+					<span>{ h.Name }</span>
+					<span class="lk-hit-type">{ h.Type }</span>
+				</button>
+			}
+		</li>
+	}
+	<li>
+		if len(m.Types) == 0 {
+			<div class="lk-hit lk-off" aria-disabled="true">
+				<span>Create “{ m.Query }”</span>
+				<span class="lk-hit-why">no relation from { m.SrcType } to any type</span>
+			</div>
+		} else {
+			<form
+				class="lk-rel-create"
+				hx-post={ relURL(m.ID, m.Tabs, "create", nil) }
+				hx-target="#lk-rel-panel"
+				hx-swap="outerHTML"
+			>
+				<input type="hidden" name="name" value={ m.Query }/>
+				if len(m.Types) == 1 {
+					<input type="hidden" name="type" value={ m.Types[0] }/>
+				} else {
+					<select name="type" required aria-label="Type of the new entity">
+						<option value="" disabled selected>type…</option>
+						for _, t := range m.Types {
+							<option value={ t }>{ t }</option>
+						}
+					</select>
+				}
+				<button type="submit" class="btn">Create “{ m.Query }”</button>
+			</form>
+		}
+	</li>
+}
+
+// relAskView asks which relation to add, when the pack allows several: each
+// coloured by its role and labelled with the role tag.
+templ relAskView(a relAsk) {
+	<li class="lk-rel-ask">Link { a.Name } as</li>
+	for _, c := range a.Choices {
+		<li>
+			<button
+				type="button"
+				class="lk-hit"
+				hx-post={ a.URL(c.Name) }
+				hx-target="#lk-rel-panel"
+				hx-swap="outerHTML"
+			>
+				<span class={ "lk-rel-name", c.Class }>{ c.Name }</span>
+				<span class="lk-hit-type">{ c.Role }</span>
+			</button>
+		</li>
+	}
+}
+
+// relCreated is the panel after a create, with the tab strip out of band:
+// the new entity's background tab.
+templ relCreated(p relPanel, strip templ.Component) {
+	@relationsPanel(p)
+	@strip
 }
 
 // relRowView is one edge. An authored one is edited on the row and saved

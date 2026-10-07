@@ -7,9 +7,14 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/gmreyer/lorekeep/internal/resolve"
+	"github.com/gmreyer/lorekeep/internal/schema"
 	"github.com/gmreyer/lorekeep/internal/world"
 )
 
@@ -66,16 +71,31 @@ func draftEntity(t *testing.T, s *Server, id string) *world.Entity {
 	return e
 }
 
-// TestRelationsPanelGroupsByRole: membership first, coloured by role, the
+func mustRelation(t *testing.T, s *Server, name string) *schema.Relation {
+	t.Helper()
+	rel, ok := s.cur.pack.Relation(name)
+	if !ok {
+		t.Fatalf("the pack lacks %s", name)
+	}
+	return rel
+}
+
+// TestRelationsPanelGroupsByRole:membership first, coloured by role, the
 // target by name, and derived edges read only with where they come from.
 func TestRelationsPanelGroupsByRole(t *testing.T) {
 	s, _ := newTestServer(t)
+	// Relation names come from the fixture, never from a literal here.
+	rels := draftEntity(t, s, "char_kaelen_vor").Relations
+	membership, placement := rels[0].Type, rels[1].Type
+	if rel, _ := s.cur.pack.Relation(membership); rel.Role != schema.RoleMembership {
+		t.Fatalf("fixture: %s is not a membership relation", membership)
+	}
 
 	got := panelHTML(t, s, "char_kaelen_vor")
-	member := strings.Index(got, ">member_of<")
-	other := strings.Index(got, ">originates_from<")
+	member := strings.Index(got, ">"+membership+"<")
+	other := strings.Index(got, ">"+placement+"<")
 	if member < 0 || other < 0 || member > other {
-		t.Fatalf("member_of should come before originates_from:\n%s", got)
+		t.Fatalf("%s should come before %s:\n%s", membership, placement, got)
 	}
 	for _, want := range []string{"rel-membership", "rel-other", ">The Ashen Court<", ">The Vale of Orrin<", ">The Siege of Vale<"} {
 		if !strings.Contains(got, want) {
@@ -89,7 +109,8 @@ func TestRelationsPanelGroupsByRole(t *testing.T) {
 	}
 
 	court := panelHTML(t, s, "fac_ashen_court")
-	if !strings.Contains(court, ">has_member<") || !strings.Contains(court, "derived: inverse of member_of") {
+	inverse := mustRelation(t, s, membership).Inverse
+	if !strings.Contains(court, ">"+inverse+"<") || !strings.Contains(court, "derived: inverse of "+membership) {
 		t.Errorf("the court's panel lacks its derived members:\n%s", court)
 	}
 	// One authored relation, two derived: only the authored row edits.
@@ -152,10 +173,22 @@ func TestPagesReadThroughResolver(t *testing.T) {
 	s := newResolveServer(t)
 	const keep = "Vale Keep"
 
+	search := func() string {
+		t.Helper()
+		w := do(t, s, "GET", "/entity/loc_vale/relations/search?tabs=loc_vale&at=loc_vale&q=keep", nil)
+		if w.Code != http.StatusOK {
+			t.Fatalf("search: %d\n%s", w.Code, w.Body)
+		}
+		return w.Body.String()
+	}
+
 	// Under held it is there: the test can see it go.
 	setWorldline(s, map[string]string{"dec_vale": "held"})
 	if got := panelHTML(t, s, "loc_vale"); !strings.Contains(got, keep) {
 		t.Fatalf("under held, the Vale's panel lacks %s:\n%s", keep, got)
+	}
+	if got := search(); !strings.Contains(got, ">"+keep+"<") {
+		t.Fatalf("under held, the search lacks %s:\n%s", keep, got)
 	}
 
 	setWorldline(s, map[string]string{"dec_vale": "fell"})
@@ -167,5 +200,319 @@ func TestPagesReadThroughResolver(t *testing.T) {
 		if page.Code != http.StatusOK || strings.Contains(page.Body.String(), keep) {
 			t.Errorf("under fell, the page of %s: %d, shows %s", id, page.Code, keep)
 		}
+	}
+	// The search still offers to create it: the typed text, not the entity.
+	if got := search(); strings.Contains(got, ">"+keep+"<") || strings.Contains(got, "loc_vale_keep") {
+		t.Errorf("under fell, the search finds %s:\n%s", keep, got)
+	}
+}
+
+// relNames are the relation names a picker answer offers, in order.
+func relNames(body string) []string {
+	var out []string
+	for _, m := range regexp.MustCompile(`class="lk-rel-name [^"]*">([^<]+)<`).FindAllStringSubmatch(body, -1) {
+		out = append(out, m[1])
+	}
+	return out
+}
+
+// TestPickerOffersOnlyValidRelations: picking a target whose type admits
+// several relations asks with exactly the ones the pack allows.
+func TestPickerOffersOnlyValidRelations(t *testing.T) {
+	s, _ := newTestServer(t)
+	const src, dst = "char_kaelen_vor", "fac_ashen_court"
+	pack := s.cur.pack
+
+	var want []string
+	for _, rel := range pack.Relations {
+		if pack.AllowsDomain(rel.Name, schema.TypeCharacter) && pack.AllowsRange(rel.Name, schema.TypeFaction) {
+			want = append(want, rel.Name)
+		}
+	}
+	if len(want) < 2 {
+		t.Fatalf("fixture: %v, want a pair with several relations", want)
+	}
+	// A known absence: a relation that cannot start at a character.
+	var absent string
+	for _, rel := range pack.Relations {
+		if !pack.AllowsDomain(rel.Name, schema.TypeCharacter) && pack.AllowsRange(rel.Name, schema.TypeFaction) {
+			absent = rel.Name
+			break
+		}
+	}
+	if absent == "" {
+		t.Fatal("fixture: no relation into a faction that a character cannot hold")
+	}
+
+	hits := do(t, s, "GET", "/entity/"+src+"/relations/search?tabs="+src+"&at="+src+"&q=ashen", nil)
+	if !strings.Contains(hits.Body.String(), ">The Ashen Court<") || strings.Contains(hits.Body.String(), ">"+dst+"<") {
+		t.Fatalf("search: want the court by name, never its ID:\n%s", hits.Body)
+	}
+
+	w := do(t, s, "POST", "/entity/"+src+"/relations/link?tabs="+src+"&at="+src+"&target="+dst, nil)
+	if w.Code != http.StatusOK || w.Header().Get("HX-Retarget") != "#lk-rel-hits" {
+		t.Fatalf("pick: %d, retarget %q\n%s", w.Code, w.Header().Get("HX-Retarget"), w.Body)
+	}
+	if got := relNames(w.Body.String()); !slices.Equal(got, want) {
+		t.Errorf("offered %v, want %v", got, want)
+	}
+	if strings.Contains(w.Body.String(), ">"+absent+"<") {
+		t.Errorf("offered %s, which a character cannot hold", absent)
+	}
+	for _, c := range validRelations(pack, schema.TypeCharacter, schema.TypeFaction) {
+		rel := mustRelation(t, s, c.Name)
+		if !strings.Contains(w.Body.String(), "lk-rel-name "+relClass(rel.Role)+`">`+c.Name+"<") || c.Role != roleLabel(rel.Role) {
+			t.Errorf("%s is not coloured and labelled by its role %q", c.Name, rel.Role)
+		}
+	}
+	if s.dirty(src) {
+		t.Error("asking which relation added one")
+	}
+
+	// A relation the pack does not allow is refused, even when asked for.
+	w = do(t, s, "POST", "/entity/"+src+"/relations/link?tabs="+src+"&at="+src+"&target="+dst+"&relation="+absent, nil)
+	if !strings.Contains(w.Body.String(), "lk-rel-err") || s.dirty(src) {
+		t.Errorf("asking for %s was not refused:\n%s", absent, w.Body)
+	}
+
+	// Choosing one adds it.
+	w = do(t, s, "POST", "/entity/"+src+"/relations/link?tabs="+src+"&at="+src+"&target="+dst+"&relation="+want[len(want)-1], nil)
+	rels := draftEntity(t, s, src).Relations
+	if last := rels[len(rels)-1]; last.Type != want[len(want)-1] || last.Target != dst {
+		t.Errorf("added %+v\n%s", last, w.Body)
+	}
+}
+
+// TestNoValidRelationGreysOut: a hit no relation reaches is shown greyed,
+// and picking it anyway is refused. The core pack's soft link runs between
+// any two types, so this is checked on the pieces.
+func TestNoValidRelationGreysOut(t *testing.T) {
+	if _, err := pickRelation(nil, "", "location", "character"); err == nil ||
+		err.Error() != "no relation between location and character" {
+		t.Errorf("pickRelation with none: %v", err)
+	}
+	var b bytes.Buffer
+	m := relSearch{ID: "a", Query: "b", SrcType: "location", Types: []string{"character"},
+		Hits: []relHit{{ID: "b_id", Name: "Bee", Type: "character"}}}
+	if err := relHits(m).Render(context.Background(), &b); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(b.String(), "no relation between location and character") ||
+		strings.Contains(b.String(), "target=b_id") || strings.Contains(b.String(), "b_id") {
+		t.Errorf("a hit with no relation:\n%s", b.String())
+	}
+}
+
+// TestSingleValidRelationAutoPicked: a pair with exactly one valid relation
+// adds it on the pick, with no second request.
+func TestSingleValidRelationAutoPicked(t *testing.T) {
+	s, _ := newTestServer(t)
+	const src, dst = "loc_vale_of_orrin", "char_miren"
+	only := validRelations(s.cur.pack, "location", schema.TypeCharacter)
+	if len(only) != 1 {
+		t.Fatalf("fixture: location → character allows %v, want one", only)
+	}
+
+	w := do(t, s, "POST", "/entity/"+src+"/relations/link?tabs="+src+"&at="+src+"&target="+dst, nil)
+	if w.Code != http.StatusOK || w.Header().Get("HX-Retarget") != "" {
+		t.Fatalf("pick: %d, retarget %q\n%s", w.Code, w.Header().Get("HX-Retarget"), w.Body)
+	}
+	if !strings.Contains(w.Header().Get("HX-Trigger"), eventDirty) {
+		t.Errorf("HX-Trigger %q, want %s", w.Header().Get("HX-Trigger"), eventDirty)
+	}
+	rels := draftEntity(t, s, src).Relations
+	if len(rels) != 1 || rels[0].Type != only[0].Name || rels[0].Target != dst {
+		t.Fatalf("relations = %+v, want one %s to %s", rels, only[0].Name, dst)
+	}
+	// It lands in the panel as an authored row, by name.
+	if !strings.Contains(w.Body.String(), ">Miren<") || !strings.Contains(w.Body.String(), "relations/0/remove") {
+		t.Errorf("the panel lacks the new row:\n%s", w.Body)
+	}
+	d, _ := s.draft(src)
+	if c := d.Changes[0]; !slices.Equal(c.Path, []string{"relations", "-"}) {
+		t.Errorf("change path %v, want relations.-", c.Path)
+	} else if _, ok := c.Value.(world.Relation); !ok {
+		t.Errorf("change value %T, want a struct", c.Value)
+	}
+}
+
+// TestCreateAndLinkSaveTogether: a create puts the new file and the relation
+// naming it into one draft, which is what the save writes together.
+func TestCreateAndLinkSaveTogether(t *testing.T) {
+	s, _ := newTestServer(t)
+	const src, name = "char_kaelen_vor", "Ser Aldric"
+	base := "/entity/" + src + "/relations/"
+	tabsQ := "tabs=" + src + "&at=" + src
+
+	// The search offers the create, with a type to choose: a character's
+	// relations reach several types.
+	hits := do(t, s, "GET", base+"search?"+tabsQ+"&q="+url.QueryEscape(name), nil)
+	types := targetTypes(s.cur.pack, schema.TypeCharacter)
+	if len(types) < 2 || !strings.Contains(hits.Body.String(), "Create “"+name+"”") || !strings.Contains(hits.Body.String(), `<select name="type"`) {
+		t.Fatalf("search, types %v:\n%s", types, hits.Body)
+	}
+	for _, typ := range types {
+		if !strings.Contains(hits.Body.String(), `<option value="`+typ+`">`) {
+			t.Errorf("the type dropdown lacks %s", typ)
+		}
+	}
+
+	// A character to a character allows several relations: it asks first.
+	form := url.Values{"name": {name}, "type": {schema.TypeCharacter}}
+	w := do(t, s, "POST", base+"create?"+tabsQ, form)
+	choices := validRelations(s.cur.pack, schema.TypeCharacter, schema.TypeCharacter)
+	if w.Header().Get("HX-Retarget") != "#lk-rel-hits" || len(relNames(w.Body.String())) != len(choices) {
+		t.Fatalf("create asked %v, want %d choices\n%s", relNames(w.Body.String()), len(choices), w.Body)
+	}
+	if s.dirty(src) {
+		t.Fatal("asking which relation created something")
+	}
+
+	rel := choices[0].Name
+	w = do(t, s, "POST", base+"create?"+tabsQ+"&relation="+rel, form)
+	if w.Code != http.StatusOK {
+		t.Fatalf("create: %d\n%s", w.Code, w.Body)
+	}
+	d, err := s.draft(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(d.Created) != 1 {
+		t.Fatalf("created = %+v, want one", d.Created)
+	}
+	c := d.Created[0]
+	prefix, _ := s.cur.pack.IDPrefix(schema.TypeCharacter)
+	if !regexp.MustCompile(`^`+prefix+`_[a-z0-9]{6}$`).MatchString(c.ID) || strings.Contains(c.ID, "aldric") {
+		t.Errorf("created ID %q", c.ID)
+	}
+	if c.File != "characters/"+c.ID+".md" || c.Name != name || c.Type != schema.TypeCharacter {
+		t.Errorf("created = %+v, want it beside the other characters", c)
+	}
+
+	// The draft's file names it ...
+	e := draftEntity(t, s, src)
+	if last := e.Relations[len(e.Relations)-1]; last.Type != rel || last.Target != c.ID {
+		t.Errorf("last relation %+v, want %s to %s", last, rel, c.ID)
+	}
+	// ... and its content is a draft entity of that ID, type and name.
+	doc, fs := world.Parse(c.File, c.Content)
+	if len(fs) > 0 || doc.Entity == nil {
+		t.Fatalf("created content does not parse: %v\n%s", fs, c.Content)
+	}
+	ne := doc.Entity
+	if ne.ID != c.ID || ne.Type != schema.TypeCharacter || ne.Name != name || ne.Status != world.StatusDraft ||
+		ne.Visibility.Kind != world.VisibilityInternal || ne.HasBody() {
+		t.Errorf("created entity = %+v", ne)
+	}
+	wantContent := "---\nid: " + c.ID + "\ntype: character\nname: " + name + "\nstatus: draft\nvisibility: internal\n---\n"
+	if string(c.Content) != wantContent {
+		t.Errorf("content:\n%s\nwant:\n%s", c.Content, wantContent)
+	}
+
+	// It opens in a background tab; the writer stays where they were.
+	if u := w.Header().Get("HX-Replace-Url"); u != "/entity/"+src+"?tabs="+url.QueryEscape(src+","+c.ID) {
+		t.Errorf("HX-Replace-Url %q", u)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `id="lk-tabs"`) || !strings.Contains(body, `hx-swap-oob="true"`) || !strings.Contains(body, `id="lk-rel-panel"`) {
+		t.Errorf("the answer lacks the panel or the out-of-band tab strip:\n%s", body)
+	}
+	if !strings.Contains(body, ">"+name+"<") {
+		t.Errorf("the panel does not name the created entity:\n%s", body)
+	}
+	if !strings.Contains(w.Header().Get("HX-Trigger"), eventDirty) {
+		t.Errorf("HX-Trigger %q", w.Header().Get("HX-Trigger"))
+	}
+
+	// A second create never takes an ID an open draft holds.
+	w = do(t, s, "POST", base+"create?"+tabsQ+"&relation="+rel, form)
+	d, _ = s.draft(src)
+	if len(d.Created) != 2 || strings.EqualFold(d.Created[0].ID, d.Created[1].ID) {
+		t.Errorf("second create: %+v", d.Created)
+	}
+}
+
+// TestCreateFolderForNewType: a type with no entities yet goes in a folder
+// named for it.
+func TestCreateFolderForNewType(t *testing.T) {
+	s, _ := newTestServer(t)
+	const src, typ = "char_kaelen_vor", "language" // a project type no entity has
+	rel := validRelations(s.cur.pack, schema.TypeCharacter, typ)[0].Name
+	w := do(t, s, "POST", "/entity/"+src+"/relations/create?tabs="+src+"&at="+src,
+		url.Values{"name": {"Old Tongue"}, "type": {typ}, "relation": {rel}})
+	d, _ := s.draft(src)
+	if len(d.Created) != 1 {
+		t.Fatalf("no create:\n%s", w.Body)
+	}
+	if c := d.Created[0]; c.File != "language/"+c.ID+".md" {
+		t.Errorf("file %q, want language/<id>.md", c.File)
+	}
+}
+
+// TestNewIDOpaqueAndUnique: prefix, underscore, six [a-z0-9]; a taken ID,
+// even one differing only in case, forces a retry.
+func TestNewIDOpaqueAndUnique(t *testing.T) {
+	shape := regexp.MustCompile(`^char_[a-z0-9]{6}$`)
+	var tried []string
+	taken := func(id string) bool {
+		tried = append(tried, id)
+		switch len(tried) {
+		case 1:
+			// Taken by an ID that differs only in case.
+			return idSet([]string{strings.ToUpper(id)})(id)
+		case 2:
+			return true
+		}
+		return false
+	}
+	id, err := newID("char", taken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tried) != 3 || id != tried[2] {
+		t.Fatalf("tried %v, got %q: want the third candidate", tried, id)
+	}
+	for _, c := range tried {
+		if !shape.MatchString(c) {
+			t.Errorf("candidate %q is not char_ and six [a-z0-9]", c)
+		}
+	}
+
+	if _, err := newID("char", func(string) bool { return true }); err == nil {
+		t.Error("an ID came back with every candidate taken")
+	}
+	seen := map[string]bool{}
+	for range 200 {
+		id, _ := newID("x", func(string) bool { return false })
+		seen[id] = true
+	}
+	if len(seen) < 199 {
+		t.Errorf("200 IDs, %d distinct", len(seen))
+	}
+}
+
+// TestMatchEntities: names and aliases, ignoring case, prefixes first, the
+// entity itself left out, at most maxHits.
+func TestMatchEntities(t *testing.T) {
+	ents := []resolve.Summary{
+		{ID: "a", Name: "The Vale"},
+		{ID: "b", Name: "Valewood"},
+		{ID: "c", Name: "Kaelen", Aliases: []string{"vale warden"}},
+		{ID: "d", Name: "Orrin"},
+		{ID: "self", Name: "Vale Keep"},
+	}
+	var got []string
+	for _, e := range matchEntities(ents, "self", "VALE") {
+		got = append(got, e.ID)
+	}
+	if want := []string{"c", "b", "a"}; !slices.Equal(got, want) {
+		t.Errorf("matches %v, want %v", got, want)
+	}
+	var many []resolve.Summary
+	for i := range 30 {
+		many = append(many, resolve.Summary{ID: strconv.Itoa(i), Name: "x"})
+	}
+	if n := len(matchEntities(many, "", "x")); n != maxHits {
+		t.Errorf("%d hits, want %d", n, maxHits)
 	}
 }
