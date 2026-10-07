@@ -1,0 +1,261 @@
+package editor
+
+import "strconv"
+
+// fieldsLine is the folded fields: one quiet line naming what is set. It is
+// the toggle (Alt+. clicks it) and swaps the form in under the title.
+templ fieldsLine(d fieldsData) {
+	<section class="lk-fields" id="lk-fields">
+		<button
+			type="button"
+			class="lk-fields-line"
+			id="lk-fields-toggle"
+			aria-expanded="false"
+			hx-get={ "/entity/" + d.ID + "/fields" }
+			hx-target="#lk-fields"
+			hx-swap="outerHTML"
+		>
+			if len(d.Line) == 0 {
+				<span class="lk-fl-label">fields</span>
+			}
+			for i, p := range d.Line {
+				if i > 0 {
+					<span class="lk-fl-sep">·</span>
+				}
+				<span class="lk-fl-label">{ p.Label }</span>
+				{ " " + p.Value }
+			}
+		</button>
+	</section>
+}
+
+// fieldsForm is the open fields, in place. Done, Esc and Alt+. fold it.
+// Nothing here saves: every edit lands in the draft.
+templ fieldsForm(d fieldsData) {
+	if d.OOBTitle {
+		<h1 class="lk-title" id="lk-title" hx-swap-oob="true">{ d.Name }</h1>
+	}
+	<section
+		class="lk-fields lk-fields-open"
+		id="lk-fields"
+		role="group"
+		aria-label="Fields"
+		hx-target="#lk-fields"
+		hx-swap="outerHTML"
+		hx-sync="this:queue all"
+	>
+		<button type="button" class="lk-fields-line lk-fields-done" id="lk-fields-toggle" aria-expanded="true" hx-get={ "/entity/" + d.ID + "/fields/line" }>
+			<span class="lk-fl-label">fields</span>
+			<span class="lk-fl-sep">·</span>
+			Done
+		</button>
+		for _, r := range d.Rows {
+			@fieldRowView(d.ID, r)
+		}
+	</section>
+}
+
+templ fieldRowView(id string, r fieldRow) {
+	<div class={ "lk-row", templ.KV("lk-bad", len(r.Errors) > 0) } data-field={ r.Field }>
+		<span class="lk-flabel">{ r.Label }</span>
+		<div class="lk-fvalue">
+			switch r.Kind {
+				case rowText:
+					<input
+						class="lk-input"
+						id={ "lk-f-" + r.Field }
+						type="text"
+						name="value"
+						value={ r.Text }
+						aria-label={ r.Label }
+						hx-post={ fieldURL(id, r.Field) }
+						hx-trigger="change"
+					/>
+				case rowList:
+					<span class="lk-list">
+						for _, it := range r.Items {
+							<span class="lk-chip">
+								{ it }
+								<button
+									type="button"
+									class="lk-chip-x"
+									title="Remove"
+									aria-label={ "Remove " + it }
+									hx-post={ fieldURL(id, r.Field) }
+									hx-vals={ vals("op", "remove", "value", it) }
+								>×</button>
+							</span>
+						}
+						<form class="lk-add" hx-post={ fieldURL(id, r.Field) }>
+							<input type="hidden" name="op" value="add"/>
+							<input class="lk-input lk-add-input" id={ "lk-f-" + r.Field + "-add" } type="text" name="value" placeholder={ r.AddLabel } aria-label={ r.AddLabel } autocomplete="off"/>
+						</form>
+					</span>
+				case rowInterval:
+					@intervalControls(id, r)
+				case rowChoice:
+					@choiceControls(id, r)
+				case rowConds:
+					@conditionChips(r.Conds)
+				case rowReadOnly:
+					<code class="lk-raw" title="Not edited here; kept as written">{ r.Raw }</code>
+			}
+			for _, e := range r.Errors {
+				<p class="lk-ferr">{ e }</p>
+			}
+		</div>
+	</div>
+}
+
+templ intervalControls(id string, r fieldRow) {
+	<span class="lk-interval">
+		<select
+			class="lk-input lk-select"
+			id={ "lk-f-" + r.Field + "-era" }
+			name="value"
+			aria-label="era"
+			hx-post={ fieldURL(id, r.Field) }
+			hx-vals={ vals("sub", "era") }
+			hx-trigger="change"
+		>
+			<option value="" selected?={ !r.Interval.EraSet }>era</option>
+			for _, o := range r.Interval.Eras {
+				<option value={ o.Value } selected?={ o.Selected }>{ o.Label }</option>
+			}
+		</select>
+		<input
+			class="lk-input lk-num"
+			id={ "lk-f-" + r.Field + "-from" }
+			type="number"
+			name="value"
+			value={ r.Interval.Earliest }
+			placeholder="from"
+			aria-label="from"
+			hx-post={ fieldURL(id, r.Field) }
+			hx-vals={ vals("sub", "earliest") }
+			hx-trigger="change"
+		/>
+		<span class="lk-fl-sep">–</span>
+		<input
+			class="lk-input lk-num"
+			id={ "lk-f-" + r.Field + "-" + "to" }
+			type="number"
+			name="value"
+			value={ r.Interval.Latest }
+			placeholder="to"
+			title="Empty: open-ended"
+			aria-label="to"
+			hx-post={ fieldURL(id, r.Field) }
+			hx-vals={ vals("sub", "latest") }
+			hx-trigger="change"
+		/>
+		<span class="lk-seg" role="group" aria-label="precision">
+			for _, c := range r.Interval.Precision {
+				<button
+					type="button"
+					class={ "lk-seg-b", templ.KV("lk-on", c.On) }
+					aria-pressed={ strconv.FormatBool(c.On) }
+					hx-post={ fieldURL(id, r.Field) }
+					hx-vals={ vals("sub", "precision", "value", c.Value) }
+				>{ c.Label }</button>
+			}
+		</span>
+	</span>
+}
+
+templ choiceControls(id string, r fieldRow) {
+	if len(r.Choices) > 4 {
+		<select class="lk-input lk-select" name="value" aria-label={ r.Label } hx-post={ fieldURL(id, r.Field) } hx-trigger="change">
+			for _, c := range r.Choices {
+				<option value={ c.Value } selected?={ c.On }>{ c.Label }</option>
+			}
+		</select>
+	} else {
+		<span class="lk-seg" role="group" aria-label={ r.Label }>
+			for _, c := range r.Choices {
+				<button
+					type="button"
+					class={ "lk-seg-b", templ.KV("lk-on", c.On) }
+					aria-pressed={ strconv.FormatBool(c.On) }
+					hx-post={ fieldURL(id, r.Field) }
+					hx-vals={ vals("value", c.Value) }
+				>{ c.Label }</button>
+			}
+		</span>
+	}
+	if len(r.Acts) > 0 {
+		<select
+			class="lk-input lk-select"
+			id={ "lk-f-" + r.Field + "-act" }
+			name="value"
+			aria-label="act"
+			hx-post={ fieldURL(id, r.Field) }
+			hx-vals={ vals("sub", "act") }
+			hx-trigger="change"
+		>
+			for _, o := range r.Acts {
+				<option value={ o.Value } selected?={ o.Selected }>{ o.Label }</option>
+			}
+		</select>
+	}
+}
+
+// conditionChips is one valid_in list: each condition a chip, "+ only when…"
+// to add one. Several chips mean all must hold. It re-renders itself from its
+// wrapper, whatever container it sits in.
+templ conditionChips(t CondTarget) {
+	if t.needsNames() {
+		<span
+			class="lk-conds"
+			id={ t.wrapID() }
+			hx-get={ t.chipsURL() }
+			hx-trigger="load"
+			hx-target="this"
+			hx-swap="outerHTML"
+		></span>
+	} else {
+		<span class="lk-conds" id={ t.wrapID() } hx-target="closest .lk-conds" hx-swap="outerHTML">
+			if len(t.Path) == 1 && len(t.Conds) == 0 {
+				<span class="lk-quiet lk-every">in every branch</span>
+			}
+			for _, c := range t.Conds {
+				<span class="lk-cond">
+					only when { t.name(c.Decision) } = { c.Outcome }
+					<button
+						type="button"
+						class="lk-chip-x"
+						title="Remove"
+						aria-label="Remove condition"
+						hx-post={ t.postURL() }
+						hx-vals={ t.vals("op", "remove", "decision", c.Decision, "outcome", c.Outcome) }
+					>×</button>
+				</span>
+			}
+			<button type="button" class="lk-cond-add" hx-get={ t.pickURL() }>+ only when…</button>
+		</span>
+	}
+}
+
+// condPicker is the small picker of "+ only when…": every decision with its
+// outcomes, one click each.
+templ condPicker(t CondTarget, decs []decisionOption) {
+	<span class="lk-conds lk-picking" id={ t.wrapID() } hx-target="closest .lk-conds" hx-swap="outerHTML">
+		if len(decs) == 0 {
+			<span class="lk-quiet">no decisions in this world yet</span>
+		}
+		for _, d := range decs {
+			<span class="lk-pick">
+				<span class="lk-quiet">{ d.Name } =</span>
+				for _, o := range d.Outcomes {
+					<button
+						type="button"
+						class="lk-cond lk-pick-b"
+						hx-post={ t.postURL() }
+						hx-vals={ t.vals("op", "add", "decision", d.ID, "outcome", o) }
+					>{ o }</button>
+				}
+			</span>
+		}
+		<button type="button" class="lk-cond-add" hx-get={ t.chipsURL() }>cancel</button>
+	</span>
+}

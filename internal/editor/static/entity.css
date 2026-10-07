@@ -1,0 +1,125 @@
+/* The entity page and the fields form. Values come from tokens.css. */
+
+.lk-entity { max-width: var(--prose-measure); }
+.lk-entity .lk-title { margin: 0; }
+
+/* ---- fields line and form ---- */
+.lk-fields { margin: 0 0 16px; font-size: var(--small); }
+.lk-fields-line {
+  display: block; max-width: 100%;
+  padding: 0; border: 0; background: none;
+  font: inherit; text-align: left; line-height: 1.6;
+  color: var(--faint); cursor: pointer;
+}
+.lk-fields-line:hover, .lk-fields-line:focus-visible { color: var(--muted); }
+.lk-fl-label { color: var(--faint); }
+.lk-fl-sep { margin: 0 6px; color: var(--faint); }
+.lk-fields-open {
+  padding: 8px 12px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.lk-fields-done { margin-bottom: 6px; color: var(--muted); }
+
+.lk-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 4px 12px; align-items: start;
+  padding: 5px 0;
+}
+.lk-flabel { color: var(--muted); line-height: 26px; }
+.lk-fvalue { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 26px; }
+.lk-fvalue > .lk-ferr { flex: 0 0 100%; }
+.lk-ferr { margin: 0; color: var(--error); font-size: var(--small); }
+.lk-row.lk-bad .lk-input,
+.lk-row.lk-bad .lk-raw {
+  outline: 1px solid var(--error);
+  border-color: var(--error-edge);
+}
+
+.lk-input {
+  height: 26px; min-width: 0;
+  padding: 0 8px;
+  font: inherit; color: var(--text);
+  background: var(--input);
+  border: 1px solid var(--input-line);
+  border-radius: var(--radius);
+}
+.lk-input:focus { outline: 1px solid var(--accent); border-color: var(--accent-edge); }
+.lk-num { width: 84px; }
+.lk-select { max-width: 200px; }
+.lk-add { display: inline-flex; margin: 0; }
+.lk-add-input { width: 120px; }
+.lk-list { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lk-interval { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lk-raw {
+  padding: 3px 8px; color: var(--muted);
+  background: var(--input); border: 1px dashed var(--input-line); border-radius: var(--radius);
+}
+
+.lk-chip, .lk-cond {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 24px; padding: 0 4px 0 8px;
+  font-size: var(--small);
+  border-radius: var(--radius);
+  border: 1px solid var(--btn-edge);
+  background: var(--btn);
+  color: var(--text);
+}
+.lk-cond { color: var(--cond-text); background: var(--cond-fill); border-color: var(--cond-edge); }
+.lk-chip-x {
+  width: 18px; height: 18px; padding: 0;
+  border: 0; border-radius: 4px; background: none;
+  color: inherit; opacity: 0.6; cursor: pointer;
+}
+.lk-chip-x:hover { opacity: 1; background: var(--btn-hover); }
+.lk-cond-add {
+  height: 24px; padding: 0 8px;
+  font-size: var(--small);
+  color: var(--muted); background: none;
+  border: 1px dashed var(--input-line); border-radius: var(--radius);
+  cursor: pointer;
+}
+.lk-cond-add:hover { color: var(--text); border-color: var(--overlay-line); }
+.lk-conds { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lk-pick { display: inline-flex; gap: 6px; align-items: center; }
+.lk-pick-b { padding: 0 8px; cursor: pointer; font-family: inherit; }
+.lk-every { margin-right: 2px; }
+
+.lk-seg { display: inline-flex; }
+.lk-seg-b {
+  height: 26px; padding: 0 10px;
+  font: inherit; color: var(--muted);
+  background: var(--input);
+  border: 1px solid var(--input-line);
+  cursor: pointer;
+}
+.lk-seg-b:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.lk-seg-b:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+.lk-seg-b + .lk-seg-b { border-left-width: 0; }
+.lk-seg-b:hover { color: var(--text); }
+.lk-seg-b.lk-on { color: var(--accent); background: var(--accent-fill); border-color: var(--accent-edge); }
+.lk-seg-b.lk-on + .lk-seg-b { border-left-width: 1px; }
+
+/* ---- prose ---- */
+.lk-prose-edit {
+  display: block; width: 100%;
+  field-sizing: content;
+  min-height: 8em;
+  margin: 0; padding: 4px 0;
+  resize: none;
+  background: none; border: 1px solid transparent; border-radius: var(--radius);
+  outline: none;
+  white-space: pre-wrap;
+}
+.lk-prose-edit:focus { padding: 4px 8px; margin: 0 -8px; width: calc(100% + 16px); background: var(--input); border-color: var(--input-line); }
+.lk-prose-edit::placeholder { color: var(--faint); }
+
+/* ---- beliefs ---- */
+.lk-believes { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--line); }
+.lk-believes-head { margin: 0 0 8px; font-family: var(--sans); font-size: 15px; font-weight: 500; color: var(--text); }
+.lk-belief { margin: 0 0 4px; font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--prose-text); }
+.lk-belief-src { margin-left: 8px; font-family: var(--mono); font-size: var(--small); color: var(--faint); }
+.lk-contradicts { margin-left: 4px; font-family: var(--mono); font-size: var(--small); color: var(--warning); }
+.lk-unsaved { margin-top: 12px; }
