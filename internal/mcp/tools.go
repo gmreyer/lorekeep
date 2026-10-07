@@ -2,7 +2,12 @@ package mcp
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io/fs"
 	"maps"
+	"os"
+	"path/filepath"
 	"slices"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -128,6 +133,10 @@ const (
 // EntityResult is one entity under the context.
 type EntityResult struct {
 	resolve.Entity
+	// Source is the entity's file as authored, frontmatter and prose, so an
+	// agent can see the file format before it proposes one. Only an author
+	// read without a knower has it: the file states canon truth.
+	Source string `json:"source,omitempty"`
 	Report
 }
 
@@ -350,7 +359,20 @@ func (s *Server) entity(cur *loaded, in entityArgs) (EntityResult, error) {
 		return EntityResult{}, err
 	}
 	e, err := cur.res.Entity(ctx, in.ID)
-	return EntityResult{Entity: e}, err
+	if err != nil {
+		return EntityResult{}, err
+	}
+	out := EntityResult{Entity: e}
+	if ctx.IsOmniscient() {
+		// A file gone since the last good build leaves source out; the
+		// result's report says that build is stale.
+		src, err := os.ReadFile(filepath.Join(s.repo, index.WorldDir, filepath.FromSlash(e.File)))
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return EntityResult{}, fmt.Errorf("reading the file of %s: %w", e.ID, err)
+		}
+		out.Source = string(src)
+	}
+	return out, nil
 }
 
 func (s *Server) expand(cur *loaded, in expandArgs) (GraphResult, error) {

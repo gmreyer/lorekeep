@@ -160,8 +160,50 @@ func TestGetEntityThreeContexts(t *testing.T) {
 			t.Fatal(err)
 		}
 		got := callOK(t, cs, "get_entity", c.args)
+		delete(got, "source") // the authored file, not part of the resolver's view; TestGetEntitySource
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("%s through MCP (-want +got):\n%s", c.golden, diff)
+		}
+	}
+}
+
+// TestGetEntitySource returns the authored file to an author read, so an
+// agent sees the file format, and leaves it out of a scoped read, since the
+// file states canon truth.
+func TestGetEntitySource(t *testing.T) {
+	repo := copyWorld(t)
+	_, cs := connect(t, repo)
+
+	got := callOK(t, cs, "get_entity", map[string]any{"id": "char_heir"})
+	file, _ := got["file"].(string)
+	want, err := os.ReadFile(filepath.Join(repo, "world", filepath.FromSlash(file)))
+	if err != nil {
+		t.Fatalf("reading %q: %v", file, err)
+	}
+	if got["source"] != string(want) {
+		t.Errorf("source = %q, want the file %s as written:\n%s", got["source"], file, want)
+	}
+
+	scoped := callOK(t, cs, "get_entity", map[string]any{"id": "char_heir", "knower": "char_kaelen"})
+	if src, ok := scoped["source"]; ok {
+		t.Errorf("scoped read has source %q, want none", src)
+	}
+}
+
+// TestInstructionsDescribeFileFormat pins the format reference an agent needs
+// before its first proposal: every field of an entity and a statement file.
+func TestInstructionsDescribeFileFormat(t *testing.T) {
+	_, cs := connect(t, copyWorld(t))
+	got := cs.InitializeResult().Instructions
+	for _, field := range []string{
+		"id:", "type:", "name:", "aliases:", "status:", "visibility:", "relations:",
+		"beliefs:", "asserts:", "valid_in:", "lifespan:", "date:", "outcomes:",
+		"subject:", "relation:", "object:", "truth:", "common:",
+		"priority:", "note:", "acquired_from:", "confidence:", "since:", "precision:",
+		"to:", "when:", "decision:", "outcome:", "earliest:", "latest:", "era:",
+	} {
+		if !strings.Contains(got, field) {
+			t.Errorf("instructions do not name %s", field)
 		}
 	}
 }
