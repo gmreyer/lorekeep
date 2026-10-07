@@ -1,12 +1,52 @@
 package editor
 
-import "github.com/gmreyer/lorekeep/internal/resolve"
-
-// entityStub is the entity page until Task 2 replaces it.
-templ entityStub(e resolve.Entity) {
+// entityPageView is the entity page: title, type, the fields line, the prose
+// as one Markdown field, and an agent's beliefs. No ID is shown.
+templ entityPageView(v entityView) {
 	<article class="lk-entity">
-		<h1 class="lk-title">{ e.Name }</h1>
-		<p class="lk-type">{ e.Type }</p>
-		<div class="lk-prose">{ e.Body }</div>
+		<h1 class="lk-title" id="lk-title">{ v.Name }</h1>
+		<p class="lk-type">{ v.Type }</p>
+		@fieldsLine(v.Fields)
+		<textarea
+			class="lk-prose lk-prose-edit"
+			name="body"
+			aria-label="Prose"
+			placeholder="Write the prose here."
+			spellcheck="true"
+			hx-post={ "/entity/" + v.ID + "/body" }
+			hx-trigger="input changed delay:500ms"
+			hx-swap="none"
+		>{ v.Body }</textarea>
+		if v.Believes != nil {
+			@beliefsBlock(v.Believes)
+		}
+	</article>
+}
+
+templ beliefsBlock(b *beliefBlock) {
+	<section class="lk-believes" aria-label="Beliefs">
+		<h2 class="lk-believes-head">What { b.Name } believes</h2>
+		if len(b.Lines) == 0 {
+			<p class="lk-quiet">Nothing yet.</p>
+		}
+		for _, l := range b.Lines {
+			<p class="lk-belief">
+				{ l.Sentence }
+				<span class="lk-belief-src">{ l.Source }</span>
+				if l.Contradicts {
+					<span class="lk-contradicts">· contradicts canon</span>
+				}
+			</p>
+		}
+	</section>
+}
+
+// createdPage is an entity made from a relation picker and not written yet:
+// there is nothing to edit until its origin is saved.
+templ createdPage(v createdView) {
+	<article class="lk-entity">
+		<h1 class="lk-title" id="lk-title">{ v.Name }</h1>
+		<p class="lk-type">{ v.Type }</p>
+		<p class="lk-quiet lk-unsaved">not saved yet: it is written when { v.Origin } is saved</p>
 	</article>
 }
