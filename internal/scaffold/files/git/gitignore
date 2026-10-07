@@ -3,3 +3,10 @@ build/
 
 # lorekeep.exe itself, if you keep a copy in the project folder.
 *.exe
+
+# Agent proposals, reviewed and accepted on the machine that wrote them.
+proposals/
+
+# The Claude Code entry from lorekeep mcp install: it holds this machine's
+# path to lorekeep.exe, so it is wrong on every other machine.
+.mcp.json
