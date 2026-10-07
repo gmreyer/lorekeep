@@ -157,8 +157,10 @@ Add the validator
 
 ## Constraints
 
-- Go only. The one exception is the editor's browser UI: templ and htmx, with a
-  JavaScript island permitted for graph projections in Step 8 and nowhere else.
+- Go only. The one exception is the editor's browser UI: templ and htmx. htmx for
+  all server interaction. JavaScript only in two named islands, keys.js and
+  graph.js, each in its own file, and nowhere else. No inline scripts and no
+  hx-on.
 - Dependencies stay few: `gopkg.in/yaml.v3`, `modernc.org/sqlite` (pure Go, no cgo),
   `go-git`, the MCP SDK, `go-cmp` in tests. Adding one is a decision to raise, not make.
 - **Windows is the primary platform** for every developer and writer:
