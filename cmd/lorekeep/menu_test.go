@@ -103,16 +103,16 @@ func TestMenuProjectItems(t *testing.T) {
 	remember(dir)
 
 	// Build, Enter; Prepare for git without CI, Enter; quit.
-	code, stdout, stderr := menuRun(t, "1\n\n3\nn\n\nq\n")
+	code, stdout, stderr := menuRun(t, "2\n\n4\nn\n\nq\n")
 	if code != exitOK {
 		t.Fatalf("exit %d\n%s", code, stderr)
 	}
 	for _, want := range []string{
 		"Project: " + dir,
-		"1) Build", "2) Update lorekeep for this project", "3) Prepare for git",
+		"1) Open the editor", "2) Build", "3) Update lorekeep for this project", "4) Prepare for git",
 		"built w 0.1.0",
 		"wrote .gitattributes",
-		"3) Add a GitHub CI workflow",
+		"4) Add a GitHub CI workflow",
 	} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("output lacks %q:\n%s", want, stdout)
@@ -131,7 +131,7 @@ func TestMenuOpen(t *testing.T) {
 	remember(b) // b is now first, and the menu opens on it
 
 	// Open another project: 2 in the recent list is a; then a non-project.
-	code, stdout, _ := menuRun(t, "4\n2\n4\n"+t.TempDir()+"\n\nq\n")
+	code, stdout, _ := menuRun(t, "5\n2\n5\n"+t.TempDir()+"\n\nq\n")
 	if code != exitOK {
 		t.Fatalf("exit %d", code)
 	}

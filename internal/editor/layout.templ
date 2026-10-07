@@ -1,0 +1,222 @@
+package editor
+
+import (
+	"fmt"
+	"net/url"
+	"strconv"
+)
+
+// layout is the shell around every view (rounds 1–3): the icon stripe, the
+// structure panel, the editor tabs, the toolbar, the view with the graph
+// panel under it, and the relations panel on the right.
+templ layout(p Page) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ p.Title }</title>
+			<link rel="stylesheet" href="/static/tokens.css"/>
+			<link rel="stylesheet" href="/static/editor.css"/>
+			<script src="/static/vendor/htmx.min.js" defer></script>
+			<script src="/static/keys.js" defer></script>
+		</head>
+		<body
+			class="lk"
+			hx-headers={ tokenHeaders(p.Token) }
+			data-keys={ p.Keys }
+			data-closed-graph
+		>
+			<div class="lk-shell">
+				@stripe(p.Tabs)
+				@structure(p)
+				<div class="lk-center">
+					@tabStrip(p.Tabs, p.Strip, false)
+					@toolbar(p)
+					<div class="lk-work">
+						<main class="lk-main" id="lk-main">
+							@p.Main
+						</main>
+						<section class="lk-graph" id="lk-graph" aria-label="Graph">
+							<header class="lk-panel-head">
+								<span>Graph</span>
+								<button type="button" class="lk-x" data-toggle="graph" title="Close">×</button>
+							</header>
+							<p class="lk-empty">The graph arrives in a later release.</p>
+						</section>
+					</div>
+				</div>
+				if p.Right != nil {
+					<aside class="lk-right" id="lk-relations" aria-label="Relations">
+						<header class="lk-panel-head">
+							<span>Relations</span>
+							<button type="button" class="lk-x" data-toggle="relations" title="Close">×</button>
+						</header>
+						<div class="lk-right-body">
+							@p.Right
+						</div>
+					</aside>
+				}
+			</div>
+		</body>
+	</html>
+}
+
+// tokenHeaders is the hx-headers value that makes htmx send the token.
+func tokenHeaders(token string) string {
+	return fmt.Sprintf(`{%q: %q}`, tokenHeader, token)
+}
+
+// stripe is the tool-window icon stripe. The settings link keeps the open
+// tabs, so the writer can go back to them.
+templ stripe(tabs Tabs) {
+	<nav class="lk-stripe" aria-label="Tool windows">
+		<button type="button" class="lk-icon" data-toggle="structure" title="Structure">
+			<svg viewBox="0 0 24 24"><path d="M4 4h10l6 6v10H4z"></path></svg>
+		</button>
+		<button type="button" class="lk-icon" data-action="switcher" title="Quick switcher">
+			<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"></circle><path d="M20 20l-4.5-4.5"></path></svg>
+		</button>
+		<span class="lk-stripe-gap"></span>
+		<a class="lk-icon" href={ templ.SafeURL("/settings/keys?" + tabsParam + "=" + url.QueryEscape(joinIDs(tabs.IDs))) } title="Keyboard shortcuts">
+			<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"></path></svg>
+		</a>
+	</nav>
+}
+
+// structure is the structure panel: entities grouped by type, listed by ID.
+// It is the only place an ID is shown.
+templ structure(p Page) {
+	<aside class="lk-structure" id="lk-structure" aria-label="Structure">
+		<header class="lk-panel-head">
+			<span>Structure</span>
+			<button type="button" class="lk-x" data-toggle="structure" title="Collapse">‹</button>
+		</header>
+		<div class="lk-tree">
+			for _, g := range p.Groups {
+				<div class="lk-tree-group">{ g.Type } · { strconv.Itoa(len(g.Entities)) }</div>
+				for _, e := range g.Entities {
+					<a
+						class={ "lk-tree-item", templ.KV("lk-sel", e.ID == p.Tabs.Active) }
+						href={ templ.SafeURL(p.Tabs.Open(e.ID).URL()) }
+						data-new-tab={ p.Tabs.Add(e.ID).URL() }
+						title={ e.Name }
+					>{ e.ID }</a>
+				}
+			}
+		</div>
+	</aside>
+}
+
+// tabStrip is the editor tabs. It re-renders itself when an edit marks a tab
+// unsaved or a save clears it. With oob set it replaces the strip from any
+// response, out of band: how a handler that opens a tab shows it.
+templ tabStrip(tabs Tabs, items []TabItem, oob bool) {
+	<nav
+		class="lk-tabs"
+		id="lk-tabs"
+		aria-label="Editor tabs"
+		hx-get={ "/tabs?" + tabsQuery(tabs) }
+		hx-trigger={ "lk-dirty from:body, lk-saved from:body" }
+		hx-swap="outerHTML"
+		if oob {
+			hx-swap-oob="true"
+		}
+	>
+		for _, it := range items {
+			<div class={ "lk-tab", templ.KV("lk-on", it.Active) } data-tab={ it.ID } data-dirty?={ it.Dirty }>
+				<a class="lk-tab-name" href={ templ.SafeURL(it.URL) } data-close-url={ it.CloseURL }>{ it.Name }</a>
+				if it.Dirty {
+					<span class="lk-dot" title="Unsaved changes">●</span>
+				}
+				<a class="lk-tab-x" href={ templ.SafeURL(it.CloseURL) } data-close title="Close">×</a>
+			</div>
+		}
+	</nav>
+}
+
+// tabsQuery is the query that names the tabs to /tabs and /status.
+func tabsQuery(t Tabs) string {
+	q := url.Values{}
+	q.Set(tabsParam, joinIDs(t.IDs))
+	q.Set("at", t.Active)
+	return q.Encode()
+}
+
+// toolbar is round 1's quiet toolbar: the status chips and Save on the right.
+templ toolbar(p Page) {
+	<div class="lk-toolbar">
+		<div class="lk-notice" id="lk-notice" role="status"></div>
+		<span class="lk-sp"></span>
+		@statusChips(p)
+		if p.Entity != "" {
+			<button
+				type="button"
+				class="btn primary"
+				id="lk-save"
+				hx-post={ "/entity/" + p.Entity + "/save" }
+				hx-target="#lk-notice"
+				hx-swap="innerHTML"
+			>Save</button>
+		}
+	</div>
+}
+
+// statusChips are the active entity's status and the last build's result.
+templ statusChips(p Page) {
+	<span
+		class="lk-chips"
+		id="lk-chips"
+		hx-get={ "/status?" + tabsQuery(p.Tabs) }
+		hx-trigger="lk-saved from:body"
+		hx-swap="outerHTML"
+	>
+		if p.Chips.Status != "" {
+			<span class={ "chip", templ.KV("accent", p.Chips.Status == "canon") }>{ p.Chips.Status }</span>
+		}
+		switch {
+			case p.Chips.Broken:
+				<span class="chip error">build failed</span>
+			case p.Chips.Errors > 0:
+				<span class="chip error">{ plural(p.Chips.Errors, "error", "errors") }</span>
+			case p.Chips.Warnings > 0:
+				<span class="chip warning">{ plural(p.Chips.Warnings, "warning", "warnings") }</span>
+			default:
+				<span class="chip pass">builds clean</span>
+		}
+	</span>
+}
+
+// emptyState is the view with no tab open.
+templ emptyState() {
+	<div class="lk-blank">
+		<p>Open an entity from the structure panel.</p>
+	</div>
+}
+
+// errorPage is a page that could not be served, with the build errors that
+// explain it.
+templ errorPage(code int, msg string, problems []string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<title>lorekeep</title>
+			<link rel="stylesheet" href="/static/tokens.css"/>
+			<link rel="stylesheet" href="/static/editor.css"/>
+		</head>
+		<body class="lk lk-error-page">
+			<main class="lk-blank">
+				<p class="lk-error-head">{ msg }</p>
+				if len(problems) > 0 {
+					<ul class="lk-problems">
+						for _, l := range problems {
+							<li>{ l }</li>
+						}
+					</ul>
+				}
+				<p><a href="/">Back to the editor</a> · { strconv.Itoa(code) }</p>
+			</main>
+		</body>
+	</html>
+}

@@ -1,0 +1,34 @@
+package editor
+
+// keysView is the Keyboard shortcuts page (round 3 amendment): every action
+// and its keys. Record captures the next combination pressed (keys.js) and
+// posts it; a combination the browser keeps, or one another action has, is
+// refused with the reason.
+templ keysView(bs []Binding, failed string, msg string) {
+	<div class="lk-settings" id="lk-keys">
+		<h1 class="lk-title">Keyboard shortcuts</h1>
+		<p class="lk-quiet">Press Record, then the keys you want. Back and forward are the browser's own: Alt+Left and Alt+Right.</p>
+		<div class="lk-keys">
+			for _, b := range bs {
+				<form
+					class={ "lk-key-row", templ.KV("lk-bad", b.Name == failed) }
+					hx-post="/settings/keys"
+					hx-target="#lk-keys"
+					hx-swap="outerHTML"
+				>
+					<input type="hidden" name="action" value={ b.Name }/>
+					<input type="hidden" name="keys" value=""/>
+					<span class="lk-key-label">{ b.Label }</span>
+					<kbd class="lk-kbd" data-keys-shown>{ b.Keys }</kbd>
+					<button type="button" class="btn" data-record>Record</button>
+					if b.Name == failed {
+						<span class="lk-key-msg">{ msg }</span>
+					}
+				</form>
+			}
+		</div>
+		<form hx-post="/settings/keys/reset" hx-target="#lk-keys" hx-swap="outerHTML">
+			<button type="submit" class="btn">Reset to defaults</button>
+		</form>
+	</div>
+}

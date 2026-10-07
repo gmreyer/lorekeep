@@ -98,6 +98,7 @@ func (m *menuState) items() []menuItem {
 		}
 	}
 	items := []menuItem{
+		{"Open the editor", func() bool { run([]string{"edit", m.current}, m.out, m.errw); return true }},
 		{"Build", func() bool { run([]string{"build", m.current}, m.out, m.errw); return true }},
 		{"Update lorekeep for this project", func() bool { run([]string{"update", m.current}, m.out, m.errw); return true }},
 	}
