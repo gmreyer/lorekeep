@@ -1,0 +1,14 @@
+package editor
+
+// saveNotice is the answer to a save, swapped into #lk-notice: quiet when
+// there was nothing to do, --pass when the world builds, --error when it
+// does not or when the save was refused. A refused save offers Reload,
+// which drops the draft and reloads the page from disk.
+templ saveNotice(n notice) {
+	<span class={ "lk-save-notice", n.class() }>{ n.Text }</span>
+	if n.Reload != "" {
+		<form class="lk-save-reload" hx-post={ "/entity/" + n.Reload + "/discard" } hx-swap="none">
+			<button type="submit" class="btn">Reload</button>
+		</form>
+	}
+}
