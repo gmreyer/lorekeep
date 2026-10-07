@@ -308,9 +308,55 @@ func (s *Server) allowedStatuses() string {
 	return strings.Join(names, ", ")
 }
 
-// instructions tell a client how reads are scoped.
+// instructions tell a client how reads are scoped, and what a world file looks
+// like, so a first proposal is well formed. The format reference names no
+// type, relation or era: those come from the project's schema packs, which
+// get_world_index lists.
 const instructions = `lorekeep serves one fictional world's lore graph. Every read takes:
 - worldline: decision ID -> outcome, choosing a story branch. An omitted decision is unassigned, so only what holds in every branch shows. get_world_index lists the decisions and their outcomes.
 - knower: an agent ID (a character or faction). With one, the read shows the world as that agent believes it; without one, it shows canon truth, if the session role allows.
 - statuses: canon by default; add draft to see drafts.
-Nothing here writes the world: propose_change writes a proposal for a human to review.`
+Nothing here writes the world: propose_change writes a proposal for a human to review.
+
+File format. Each entity and each statement is one Markdown file under world/: YAML frontmatter between --- lines, then prose. <...> is a placeholder; get_world_index lists the types, relations, eras and decisions, and get_entity without a knower returns an existing file as source. Optional keys are left out when unused.
+
+An entity file:
+---
+id: <new ID: a-z, 0-9 and _, opaque, never derived from the name; IDs never change>
+type: <entity type>
+name: <display name>
+aliases: [<another name>]                 # optional
+status: draft                             # draft | canon | deprecated | non_canon
+visibility: internal                      # public | spoiler | internal
+relations:                                # optional; only relations the schema allows between the two types
+  - { type: <relation>, target: <entity ID>, priority: 1, note: <text>, valid_in: [<condition>] }  # priority, note, valid_in optional
+beliefs:                                  # optional, agents only: what this agent holds a statement to be
+  - { statement: <statement ID>, value: true, confidence: high, since: <interval>, acquired_from: <agent ID>, valid_in: [<condition>] }
+asserts:                                  # optional, agents only: what it says; saying what it does not believe is a lie
+  - { statement: <statement ID>, value: false, to: <agent ID>, when: <interval>, valid_in: [<condition>] }
+lifespan: <interval>                      # optional, characters only
+date: <interval>                          # optional, events only
+outcomes: [<outcome>, <outcome>]          # decisions only, required
+valid_in: [<condition>]                   # optional; omitted means every branch
+---
+Prose about the entity.
+
+A statement file, only for a fact some agent can be wrong about; any other fact is a relation:
+---
+id: <new ID>
+type: statement
+name: <the fact as a sentence>
+subject: <entity ID>
+relation: <relation>
+object: <entity ID>
+truth: true                               # canon truth: true | false | unresolved
+common: true                              # optional: agents with no belief of their own take the truth
+status: draft
+visibility: internal
+valid_in: [<condition>]                   # optional
+---
+Prose about the fact.
+
+<interval> is { era: <era>, earliest: <year>, latest: <year>, precision: exact }, with precision exact or approximate; omit a bound that is unknown.
+<condition> is { decision: <decision ID>, outcome: <outcome> }; several in one valid_in must all hold.
+confidence is high, medium or low.`
