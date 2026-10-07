@@ -5,7 +5,7 @@ name: The Harrowgate Fire
 status: canon
 visibility: public
 relations:
-  - { type: occurred_at, target: loc_harrowgate }
+  - {type: occurred_at, target: loc_harrowgate}
 ---
 
 One night, one street, and three different accounts of how it started.
